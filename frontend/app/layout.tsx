@@ -21,14 +21,26 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: 'VocaCart — Voice Shopping Command Center',
   description:
-    'Shop hands-free. VocaCart is a voice-first shopping assistant that turns what you say into a smart, organized cart.',
+    'Shop hands-free. VocaCart is a smart bilingual voice shopping assistant that turns what you say into an organized cart.',
   generator: 'v0.app',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'VocaCart',
+  },
+  formatDetection: {
+    telephone: false,
+  },
 }
 
 export const viewport: Viewport = {
   colorScheme: 'dark',
   themeColor: '#2a2419',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
   userScalable: true,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -41,7 +53,7 @@ export default function RootLayout({
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${bricolage.variable} bg-background`}
     >
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased select-none sm:select-auto touch-manipulation">
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>

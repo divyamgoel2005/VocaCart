@@ -8,29 +8,30 @@ import { ShoppingList } from "@/components/shopping-list/shopping-list"
 import { SmartPicks } from "@/components/suggestions/smart-picks"
 import { VoiceSearch } from "@/components/search/voice-search"
 import { ActivityTimeline } from "@/components/history/activity-timeline"
+import { MobileVoiceBar } from "@/components/voice/mobile-voice-bar"
 import { useVocaCart } from "@/components/providers/vocacart-provider"
 
 export function CommandCenter() {
   const { mode } = useVocaCart()
 
   return (
-    <div className="vignette min-h-dvh">
+    <div className="vignette min-h-dvh flex flex-col justify-between">
       <AppHeader />
 
-      <main className="mx-auto max-w-6xl px-4 pb-28 pt-6 sm:px-6 lg:pb-16 lg:pt-10">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
-          {/* Left — shopping list (order after hero on mobile) */}
+      <main className="mx-auto w-full max-w-6xl px-3 pb-32 pt-4 sm:px-6 sm:pb-24 lg:pb-16 lg:pt-8 flex-1">
+        <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)_minmax(0,1fr)] lg:items-start lg:gap-5">
+          {/* Left — shopping list (order 2 on mobile) */}
           <div className="order-2 lg:order-1 lg:sticky lg:top-20">
             <ShoppingList />
           </div>
 
-          {/* Center — the voice centerpiece */}
+          {/* Center — voice centerpiece (order 1 on mobile) */}
           <div className="order-1 lg:order-2 lg:pt-2">
             <VoiceHero />
           </div>
 
-          {/* Right — mode-aware panel + activity */}
-          <div className="order-3 flex flex-col gap-6 lg:order-3 lg:sticky lg:top-20">
+          {/* Right — search / suggestions + activity (order 3 on mobile) */}
+          <div className="order-3 flex flex-col gap-5 lg:order-3 lg:sticky lg:top-20">
             <div className="relative">
               <AnimatePresence mode="wait">
                 <motion.div
@@ -48,6 +49,9 @@ export function CommandCenter() {
           </div>
         </div>
       </main>
+
+      {/* Floating Thumb Voice Action Bar for Mobile Viewports */}
+      <MobileVoiceBar />
     </div>
   )
 }
