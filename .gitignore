@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js & Frontend Build Outputs
+.next/
+out/
+build/
+dist/
+.swc/
+
+# Testing & Coverage
+coverage/
+.nyc_output/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Python Virtual Environments
+venv/
+.venv/
+env/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Sensitive Environment Files (keep .env.example tracked)
+.env
+
+# Database & Runtime Artifacts
+*.db
+*.sqlite
+*.sqlite3
+voice_shopping.db
+chroma_db/
+backend/chroma_db/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# OS & Editor Files
+.DS_Store
+*.pem
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# v0 / Temporary Files
+__v0_*
+.snowflake/
+.v0-trash/
+.vercel/
