@@ -51,6 +51,12 @@ const PHONETIC_CORRECTIONS: Record<string, string> = {
   tel: 'Cooking Oil',
   biskit: 'Biscuits',
   biscut: 'Biscuits',
+  'parle-g': 'Parle-G Biscuits',
+  'parleg': 'Parle-G Biscuits',
+  parle: 'Parle-G Biscuits',
+  oreo: 'Oreo Biscuits',
+  bourbon: 'Bourbon Biscuits',
+  'good day': 'Good Day Biscuits',
 }
 
 // Complete list of Hindi & English particles, helper verbs, postpositions, and conjunctions

@@ -150,12 +150,12 @@ export const BILINGUAL_GROCERY_MAP: BilingualGrocery[] = [
   {
     canonical: 'Milk',
     hindi: ['doodh', 'dudh', 'dhoodh', 'duudh'],
-    english: ['milk', 'cow milk', 'toned milk', 'full cream milk', 'amul milk'],
+    english: ['milk', 'cow milk', 'toned milk', 'full cream milk'],
   },
   {
     canonical: 'Butter',
     hindi: ['makkhan', 'makhan', 'maska'],
-    english: ['butter', 'salted butter', 'pasteurized butter', 'amul butter'],
+    english: ['butter', 'salted butter', 'pasteurized butter'],
   },
   {
     canonical: 'Cheese',
@@ -207,7 +207,7 @@ export const BILINGUAL_GROCERY_MAP: BilingualGrocery[] = [
   {
     canonical: 'Salt',
     hindi: ['namak', 'nimak', 'laavan'],
-    english: ['salt', 'table salt', 'rock salt', 'iodized salt', 'tata salt'],
+    english: ['salt', 'table salt', 'rock salt', 'iodized salt'],
   },
   {
     canonical: 'Cooking Oil',
@@ -217,12 +217,12 @@ export const BILINGUAL_GROCERY_MAP: BilingualGrocery[] = [
   {
     canonical: 'Tea',
     hindi: ['chai', 'chay', 'chaai', 'patti', 'chai patti'],
-    english: ['tea', 'tea powder', 'black tea', 'green tea', 'tea bags', 'tata tea'],
+    english: ['tea', 'tea powder', 'black tea', 'green tea', 'tea bags'],
   },
   {
     canonical: 'Coffee',
     hindi: ['coffee', 'kofi'],
-    english: ['coffee', 'instant coffee', 'ground coffee', 'nescafe'],
+    english: ['coffee', 'instant coffee', 'ground coffee'],
   },
   {
     canonical: 'Maggi Noodles',
@@ -231,17 +231,36 @@ export const BILINGUAL_GROCERY_MAP: BilingualGrocery[] = [
   },
   {
     canonical: 'Biscuits',
-    hindi: ['biskit', 'biscut', 'biscuit', 'parle-g'],
-    english: ['biscuit', 'biscuits', 'cookies', 'parle g'],
+    hindi: ['biskit', 'biscut', 'biscuit'],
+    english: ['biscuit', 'biscuits', 'cookies'],
   },
 ]
 
-const BRAND_WORDS = new Set([
-  'amul', 'tata', 'fortune', 'aashirvaad', 'britannia', 'nestle', 'parle',
-  'fresh', 'organic', 'pure', 'mother', 'dairy', 'dettol', 'colgate', 'surf',
-  'excel', 'wagh', 'bakri', 'red', 'label', 'taj', 'mahal', 'haldiram', 'patanjali',
-  'packet', 'kg', 'kilo', 'litre', 'bottle', 'box', 'piece', 'pcs', 'gm', 'gram'
-])
+export const KNOWN_BRANDS = [
+  'oreo', 'bourbon', 'hide & seek', 'hide and seek', 'good day', 'marie gold', 'marie',
+  'monaco', 'krackjack', 'parle-g', 'parle g', 'parle', 'britannia', 'sunfeast',
+  'amul', 'mother dairy', 'safal', 'nestle', 'tata', 'fortune', 'aashirvaad',
+  'maggi', 'knorr', 'top ramen', 'yippee', 'lays', 'kurkure', 'bingo', 'haldiram',
+  'cadbury', 'dairy milk', 'kitkat', 'snickers', 'lipton', 'taj mahal', 'red label',
+  'wagh bakri', 'society', 'nescafe', 'bru', 'colgate', 'pepsodent', 'sensodyne',
+  'dettol', 'lifebuoy', 'dove', 'pears', 'lux', 'surf excel', 'ariel', 'tide', 'vim',
+  'harpic', 'lizol', 'patanjali', 'everest', 'mdh', 'saffola'
+]
+
+/**
+ * Extracts recognized brand from product name
+ */
+export function extractBrand(name: string): string | null {
+  if (!name) return null
+  const lower = name.toLowerCase()
+  for (const b of KNOWN_BRANDS) {
+    const escaped = b.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')
+    if (new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`, 'i').test(lower)) {
+      return b
+    }
+  }
+  return null
+}
 
 /**
  * Returns the canonical normalized root key for an item name.
@@ -264,7 +283,7 @@ export function getCanonicalItemKey(name: string): string {
   }
 
   // Strip brand prefixes to get the core noun
-  const nonBrand = clean.split(/\s+/).filter(w => !BRAND_WORDS.has(w)).join(' ')
+  const nonBrand = clean.split(/\s+/).filter((w) => !KNOWN_BRANDS.includes(w)).join(' ')
   return (nonBrand || clean).replace(/s$/, '').replace(/es$/, '')
 }
 
@@ -278,22 +297,44 @@ export function areItemsEquivalent(name1: string, name2: string): boolean {
 
   if (n1 === n2) return true
 
-  const key1 = getCanonicalItemKey(n1)
-  const key2 = getCanonicalItemKey(n2)
+  const brand1 = extractBrand(n1)
+  const brand2 = extractBrand(n2)
 
-  // Direct match on canonical category (e.g. Milk === Milk, Tomato === Tomato)
-  if (key1 && key2 && key1 === key2) {
-    return true
+  // 1. BRAND CONFLICT RULE:
+  // If both items have different explicit brands (e.g. Oreo vs Parle-G, Amul vs Mother Dairy, Tata vs Wagh Bakri),
+  // they are DIFFERENT distinct products!
+  if (brand1 && brand2 && brand1 !== brand2) {
+    return false
   }
 
-  // Filter out brand words and generic terms
-  const coreWords1 = n1.split(/\s+/).filter(w => w.length > 2 && !BRAND_WORDS.has(w))
-  const coreWords2 = n2.split(/\s+/).filter(w => w.length > 2 && !BRAND_WORDS.has(w))
+  // 2. If both items have the same brand, check if canonical product matches (e.g. Amul Milk vs Amul Milk, Oreo vs Oreo)
+  if (brand1 && brand2 && brand1 === brand2) {
+    const key1 = getCanonicalItemKey(n1)
+    const key2 = getCanonicalItemKey(n2)
+    return key1 === key2 || n1.includes(n2) || n2.includes(n1)
+  }
 
-  // Only consider equivalent if core product nouns match exactly
-  if (coreWords1.length > 0 && coreWords2.length > 0) {
-    const hasCoreMatch = coreWords1.some(w => coreWords2.includes(w))
-    if (hasCoreMatch) return true
+  // 3. One has a brand (e.g. "Oreo Biscuits") and the other is generic (e.g. "Biscuits" without brand)
+  // If brand is missing on one side, only match if the specific brand name itself was mentioned
+  if ((brand1 && !brand2) || (!brand1 && brand2)) {
+    const specifiedBrand = brand1 || brand2
+    if (specifiedBrand && (n1.includes(specifiedBrand) && n2.includes(specifiedBrand))) {
+      return true
+    }
+    // Generic "biscuit" should not automatically increment a branded "Oreo" if user didn't say Oreo
+    const key1 = getCanonicalItemKey(n1)
+    const key2 = getCanonicalItemKey(n2)
+    if (key1 === 'milk' || key1 === 'atta' || key1 === 'salt') {
+      return key1 === key2
+    }
+    return false
+  }
+
+  // 4. Neither has a brand (Fresh produce / general items like Tomato vs Tamatar)
+  const key1 = getCanonicalItemKey(n1)
+  const key2 = getCanonicalItemKey(n2)
+  if (key1 && key2 && key1 === key2) {
+    return true
   }
 
   return false
