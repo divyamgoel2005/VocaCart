@@ -1,4 +1,4 @@
-// Shared Shopping List Data Store for Serverless Routes & Fallback
+// Shared Shopping List Data Store for Serverless Routes
 
 export interface StoredShoppingItem {
   id: number | string
@@ -9,32 +9,7 @@ export interface StoredShoppingItem {
   is_completed: boolean
 }
 
-let IN_MEMORY_ITEMS: StoredShoppingItem[] = [
-  {
-    id: 1,
-    product_name: 'Organic Whole Milk',
-    quantity: 2,
-    unit: 'bottles',
-    category: 'dairy',
-    is_completed: false,
-  },
-  {
-    id: 2,
-    product_name: 'Fresh Farm Tomatoes',
-    quantity: 1,
-    unit: 'kg',
-    category: 'produce',
-    is_completed: false,
-  },
-  {
-    id: 3,
-    product_name: 'Brown Eggs',
-    quantity: 1,
-    unit: 'dozen',
-    category: 'dairy',
-    is_completed: true,
-  },
-]
+let IN_MEMORY_ITEMS: StoredShoppingItem[] = []
 
 export function getStoreItems(): StoredShoppingItem[] {
   return [...IN_MEMORY_ITEMS]

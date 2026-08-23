@@ -22,6 +22,8 @@ import {
   undoLastAction,
   mapToCategory,
   nextId,
+  getLocalStoredItems,
+  setLocalStoredItems,
   type ActivityEvent,
   type LanguageCode,
   type ParsedItem,
@@ -136,6 +138,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<Mode>('assistant')
   const [speechSupported, setSpeechSupported] = useState(false)
 
+  // Clean empty initial cart
   const [items, setItems] = useState<ShoppingItem[]>([])
   const [loadingList, setLoadingList] = useState(true)
 
@@ -182,13 +185,13 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // --- init & refresh ---
+  // --- init & refresh from LocalStorage ---
   const refreshAll = useCallback(async () => {
     try {
-      const list = await getShoppingList()
-      setItems(list)
+      const saved = getLocalStoredItems()
+      setItems(saved)
       setLoadingList(false)
-      const sug = await getSuggestions(list)
+      const sug = await getSuggestions(saved)
       setSuggestions(sug)
       setLoadingSuggestions(false)
     } catch (err) {
@@ -201,62 +204,58 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
     refreshAll()
   }, [refreshAll])
 
+  // Auto-sync items state to localStorage
+  useEffect(() => {
+    if (!loadingList) {
+      setLocalStoredItems(items)
+      getSuggestions(items).then(setSuggestions)
+    }
+  }, [items, loadingList])
+
   const pushHistory = useCallback((kind: ActivityEvent['kind'], text: string) => {
     setHistory((prev) =>
       [{ id: nextId('act'), kind, text, timestamp: Date.now() }, ...prev].slice(0, 25),
     )
   }, [])
 
-  const refreshSuggestions = useCallback((current: ShoppingItem[]) => {
-    getSuggestions(current).then(setSuggestions)
-  }, [])
-
-  // --- list mutations with Deduplication ---
+  // --- list mutations with Persistent State ---
   const addParsedItem = useCallback(
     async (parsed: ParsedItem) => {
       const cleanName = cleanSpokenItemName(parsed.name) || parsed.name
-      const existing = items.find((i) => areItemsEquivalent(i.name, cleanName))
 
-      if (existing) {
-        const newQty = existing.quantity + parsed.quantity
-        setItems((prev) =>
-          prev.map((i) => (i.id === existing.id ? { ...i, quantity: newQty } : i)),
-        )
-        pushHistory('update', `Updated ${existing.name} to ${newQty} ${parsed.unit || existing.unit || 'items'}`)
-        speakText(`Added ${parsed.quantity} more ${cleanName}. Total is now ${newQty}.`)
+      setItems((prev) => {
+        const existingIndex = prev.findIndex((i) => areItemsEquivalent(i.name, cleanName))
+        if (existingIndex !== -1) {
+          const updated = [...prev]
+          const newQty = updated[existingIndex].quantity + parsed.quantity
+          updated[existingIndex] = { ...updated[existingIndex], quantity: newQty }
+          pushHistory('update', `Updated ${updated[existingIndex].name} to ${newQty} ${parsed.unit || 'items'}`)
+          speakText(`Added ${parsed.quantity} more ${cleanName}. Total is now ${newQty}.`)
+          return updated
+        } else {
+          const newItem: ShoppingItem = {
+            id: nextId('item'),
+            name: cleanName,
+            quantity: parsed.quantity,
+            unit: parsed.unit,
+            category: parsed.category,
+            completed: false,
+          }
+          pushHistory('add', `Added ${parsed.quantity} × ${cleanName}`)
+          speakText(`Added ${parsed.quantity} ${cleanName}`)
+          return [newItem, ...prev]
+        }
+      })
 
-        try {
-          await updateItemQuantity(existing.id, newQty)
-          const updatedList = await getShoppingList()
-          setItems(updatedList)
-          refreshSuggestions(updatedList)
-        } catch (err) {
-          console.warn('Update quantity error:', err)
-        }
-      } else {
-        const optimistic: ShoppingItem = {
-          id: nextId('item'),
-          name: cleanName,
-          quantity: parsed.quantity,
-          unit: parsed.unit,
-          category: parsed.category,
-          completed: false,
-        }
-        setItems((prev) => [optimistic, ...prev])
-        pushHistory('add', `Added ${parsed.quantity} × ${cleanName}`)
-        speakText(`Added ${parsed.quantity} ${cleanName}`)
-
-        try {
-          await addShoppingItem(optimistic)
-          const updatedList = await getShoppingList()
-          setItems(updatedList)
-          refreshSuggestions(updatedList)
-        } catch (err) {
-          console.warn('Add item error:', err)
-        }
-      }
+      // Background API sync
+      addShoppingItem({
+        name: cleanName,
+        quantity: parsed.quantity,
+        unit: parsed.unit,
+        category: parsed.category,
+      }).catch(() => {})
     },
-    [items, pushHistory, refreshSuggestions, speakText],
+    [pushHistory, speakText],
   )
 
   const addSuggestion = useCallback(
@@ -273,80 +272,61 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const removeItem = useCallback(
     async (id: string) => {
-      const target = items.find((i) => i.id === id)
-      if (target) pushHistory('remove', `Removed ${target.name}`)
-      setItems((prev) => prev.filter((i) => i.id !== id))
-      try {
-        await removeShoppingItem(id)
-        const updatedList = await getShoppingList()
-        setItems(updatedList)
-        refreshSuggestions(updatedList)
-      } catch (err) {
-        console.warn('Remove item error:', err)
-      }
+      setItems((prev) => {
+        const target = prev.find((i) => String(i.id) === String(id))
+        if (target) pushHistory('remove', `Removed ${target.name}`)
+        return prev.filter((i) => String(i.id) !== String(id))
+      })
+      removeShoppingItem(id).catch(() => {})
     },
-    [items, pushHistory, refreshSuggestions],
+    [pushHistory],
   )
 
   const clearAllItems = useCallback(async () => {
-    const currentItems = [...items]
-    if (currentItems.length === 0) {
-      speakText('Aapki shopping list pehle se hi khali hai.')
-      return
-    }
-
     setItems([])
+    setLocalStoredItems([])
     pushHistory('remove', 'Removed all items from list')
     speakText('Aapki list se saare items hata diye gaye hain.')
-
     try {
-      await Promise.allSettled(currentItems.map((item) => removeShoppingItem(item.id)))
-      const updatedList = await getShoppingList()
-      setItems(updatedList)
-      refreshSuggestions(updatedList)
-    } catch (err) {
-      console.warn('Clear all items error:', err)
-    }
-  }, [items, pushHistory, refreshSuggestions, speakText])
+      fetch('/api/list', { method: 'DELETE' }).catch(() => {})
+    } catch {}
+  }, [pushHistory, speakText])
 
   const changeQuantity = useCallback(
     async (id: string, quantity: number) => {
       const q = Math.max(1, quantity)
-      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, quantity: q } : i)))
-      try {
-        await updateItemQuantity(id, q)
-      } catch (err) {
-        console.warn('Change quantity error:', err)
-      }
+      setItems((prev) => prev.map((i) => (String(i.id) === String(id) ? { ...i, quantity: q } : i)))
+      updateItemQuantity(id, q).catch(() => {})
     },
     [],
   )
 
   const toggleComplete = useCallback(
     async (id: string) => {
-      const target = items.find((i) => i.id === id)
-      const next = !target?.completed
-      if (target && next) pushHistory('complete', `Checked off ${target.name}`)
-      setItems((prev) => prev.map((i) => (i.id === id ? { ...i, completed: next } : i)))
-      try {
-        await toggleItemComplete(id, next)
-      } catch (err) {
-        console.warn('Toggle complete error:', err)
-      }
+      setItems((prev) =>
+        prev.map((i) => {
+          if (String(i.id) === String(id)) {
+            const next = !i.completed
+            if (next) pushHistory('complete', `Checked off ${i.name}`)
+            toggleItemComplete(id, next).catch(() => {})
+            return { ...i, completed: next }
+          }
+          return i
+        }),
+      )
     },
-    [items, pushHistory],
+    [pushHistory],
   )
 
   const undo = useCallback(async () => {
     try {
       await undoLastAction()
-      await refreshAll()
       pushHistory('update', 'Reverted last action')
       speakText('Pichla action undo kar diya hai.')
     } catch (err) {
       console.warn('Undo error:', err)
     }
-  }, [pushHistory, refreshAll, speakText])
+  }, [pushHistory, speakText])
 
   // --- search ---
   const runSearch = useCallback(
@@ -550,7 +530,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             if (backendRes.spoken_text) {
               speakText(backendRes.spoken_text, backendRes.urgency_score)
             }
-            pushHistory('add', backendRes.spoken_text || `Added ${itemsToAdd.length} items`)
+            pushHistory('add', backendRes.spoken_text || `Added items`)
 
             setLastResult({
               transcript,
@@ -563,9 +543,6 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               })),
             })
 
-            const updatedList = await getShoppingList()
-            setItems(updatedList)
-            refreshSuggestions(updatedList)
             setVoiceStatus('success')
             return
           } else {
@@ -600,9 +577,6 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               })
             }
 
-            const updatedList = await getShoppingList()
-            setItems(updatedList)
-            refreshSuggestions(updatedList)
             setVoiceStatus('success')
           }
         } catch (backendErr) {
@@ -647,7 +621,6 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
       language,
       lastSuggestedProduct,
       pushHistory,
-      refreshSuggestions,
       removeItem,
       runSearch,
       speakText,
@@ -665,14 +638,11 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
       if (res.spoken_text) {
         speakText(res.spoken_text, res.urgency_score)
       }
-      const updatedList = await getShoppingList()
-      setItems(updatedList)
-      refreshSuggestions(updatedList)
       pushHistory('add', res.spoken_text || `Added ${lastSuggestedProduct}`)
     } catch (err) {
       console.warn('Confirm clarification error:', err)
     }
-  }, [lastSuggestedProduct, pushHistory, refreshSuggestions, speakText])
+  }, [lastSuggestedProduct, pushHistory, speakText])
 
   const dismissClarification = useCallback(() => {
     setClarifyingQuestion(null)
