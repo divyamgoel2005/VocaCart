@@ -7,17 +7,19 @@ const nextConfig = {
     unoptimized: true,
   },
   async rewrites() {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${backendUrl}/api/:path*`,
-      },
-      {
-        source: '/socket.io/:path*',
-        destination: `${backendUrl}/socket.io/:path*`,
-      }
-    ];
+    if (process.env.NEXT_PUBLIC_API_URL) {
+      return [
+        {
+          source: '/api/:path*',
+          destination: `${process.env.NEXT_PUBLIC_API_URL}/api/:path*`,
+        },
+        {
+          source: '/socket.io/:path*',
+          destination: `${process.env.NEXT_PUBLIC_API_URL}/socket.io/:path*`,
+        }
+      ];
+    }
+    return [];
   }
 };
 
