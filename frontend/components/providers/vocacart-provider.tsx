@@ -245,13 +245,13 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             utterance.lang = isHindi ? 'hi-IN' : 'en-US'
           }
 
-          // Optimal conversational rate: 1.12x for Hindi, 1.08x for English
-          utterance.rate = isHindi ? 1.12 : (urgency > 0.65 ? 1.16 : 1.08)
+          // Crisp, fast, natural human speech rate (1.15x for Hindi, 1.18x for English)
+          utterance.rate = isHindi ? 1.15 : (urgency > 0.65 ? 1.25 : 1.18)
           utterance.pitch = 1.0
           utterance.volume = 1.0
 
           window.speechSynthesis.speak(utterance)
-        }, 15)
+        }, 5)
       } catch (err) {
         console.warn('Speech synthesis error:', err)
       }
@@ -569,207 +569,88 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // 9. Voice Processing (Gemini AI + Local NLP Backend)
+        // 9. Instant Voice Processing (0ms Latency Engine)
         const localParsed = parseVoiceCommand(transcript)
         const detected = detectIntent(transcript)
 
-        try {
-          const backendRes = await processVoiceBackend(transcript, lastSuggestedProduct)
+        if (detected === 'remove') {
+          const rawCandidate = localParsed.items[0]?.name || transcript.trim()
+          const cleanTarget = attachBrandIfPackaged(cleanSpokenItemName(rawCandidate) || rawCandidate)
+          const specifiedQty = localParsed.items[0]?.quantity || 0
+          const isPartialRemoval =
+            specifiedQty > 0 &&
+            !/(all|saare|saara|sab|pura|complete|everything)/i.test(transcript)
 
-          if (backendRes.success && !backendRes.needs_clarification) {
-            const act = backendRes.action || (detected === 'remove' ? 'REMOVE_ITEM' : 'ADD_ITEM')
+          const existing = items.find((i) => areItemsEquivalent(i.name, cleanTarget))
 
-            if (act === 'CLEAR_ALL') {
-              await clearAllItems(isHindiMode)
-              setLastResult({ transcript, intent: 'remove', items: [] })
-              setVoiceStatus('success')
-              return
-            }
-
-            if (act.includes('REMOVE')) {
-              const itemToRemove =
-                backendRes.items?.[0]?.product_name ||
-                backendRes.item?.product_name ||
-                backendRes.raw_item_name ||
-                localParsed.items[0]?.name ||
-                transcript
-              const cleanTarget = cleanSpokenItemName(itemToRemove) || itemToRemove
-              const specifiedQty =
-                backendRes.items?.[0]?.quantity ||
-                backendRes.item?.quantity ||
-                localParsed.items[0]?.quantity ||
-                0
-              const isPartialRemoval =
-                specifiedQty > 0 &&
-                !/(all|saare|saara|sab|pura|complete|everything)/i.test(transcript)
-
-              const existing = items.find((i) => areItemsEquivalent(i.name, cleanTarget))
-
-              if (existing) {
-                if (isPartialRemoval && existing.quantity > specifiedQty) {
-                  const newQty = existing.quantity - specifiedQty
-                  await changeQuantity(existing.id, newQty)
-                  const unitLabel = existing.unit && existing.unit !== 'item' ? ` ${existing.unit}` : ''
-                  const spoken = isHindiMode
-                    ? `${existing.name} ke ${specifiedQty}${unitLabel} kam kar diye. Ab ${newQty}${unitLabel} bache hain.`
-                    : `Removed ${specifiedQty}${unitLabel} of ${existing.name}. ${newQty}${unitLabel} remaining in your cart.`
-                  speakText(spoken)
-                  pushHistory('update', spoken)
-                } else {
-                  await removeItem(existing.id)
-                  const spoken = isHindiMode
-                    ? `${existing.name} list se hata diya gaya hai.`
-                    : `Removed ${existing.name} from your list.`
-                  speakText(spoken)
-                  pushHistory('remove', spoken)
-                }
-              } else {
-                speakText(isHindiMode ? `${cleanTarget} list mein nahi mila.` : `Could not find ${cleanTarget} in list.`)
-              }
-              setLastResult({ transcript, intent: 'remove', items: [] })
-              setVoiceStatus('success')
-              return
-            }
-
-            // ADD_ITEM action
-            const itemsToAdd = (backendRes.items && backendRes.items.length > 0)
-              ? backendRes.items
-              : backendRes.item
-                ? [backendRes.item]
-                : localParsed.items.length > 0
-                  ? localParsed.items.map(i => ({ product_name: i.name, quantity: i.quantity, unit: i.unit, category: i.category }))
-                  : [{ product_name: cleanSpokenItemName(transcript) || transcript, quantity: 1, unit: 'item', category: 'other' }]
-
-            for (const itm of itemsToAdd) {
-              const cleanProdName = cleanSpokenItemName(itm.product_name) || itm.product_name
-              await addParsedItem({
-                name: cleanProdName,
-                quantity: Math.max(1, Math.round(itm.quantity || 1)),
-                unit: itm.unit,
-                category: mapToCategory(itm.category),
-              }, false) // Suppress duplicate speech
-            }
-
-            const itemDescriptions = itemsToAdd
-              .map((i) => `${i.quantity} ${i.unit !== 'item' ? i.unit + ' ' : ''}${i.product_name}`)
-              .join(', ')
-
-            const replyText = isHindiMode
-              ? `${itemDescriptions} aapki shopping list mein jod diya hai.`
-              : `Added ${itemDescriptions} to your cart.`
-
-            speakText(replyText, backendRes.urgency_score)
-            pushHistory('add', replyText)
-
-            setLastResult({
-              transcript,
-              intent: 'add',
-              items: itemsToAdd.map((i) => ({
-                name: cleanSpokenItemName(i.product_name) || i.product_name,
-                quantity: Math.max(1, Math.round(i.quantity || 1)),
-                unit: i.unit,
-                category: mapToCategory(i.category),
-              })),
-            })
-
-            setVoiceStatus('success')
-            return
-          } else {
-            // Local fallback
-            const rawCandidate =
-              backendRes.suggested_product ||
-              backendRes.raw_item_name ||
-              localParsed.items[0]?.name ||
-              transcript.trim()
-            const itemNameToUse = cleanSpokenItemName(rawCandidate) || rawCandidate
-            const specifiedQty = localParsed.items[0]?.quantity || 0
-            const isPartialRemoval =
-              specifiedQty > 0 &&
-              !/(all|saare|saara|sab|pura|complete|everything)/i.test(transcript)
-
-            if (detected === 'remove') {
-              const existing = items.find(i => areItemsEquivalent(i.name, itemNameToUse))
-              if (existing) {
-                if (isPartialRemoval && existing.quantity > specifiedQty) {
-                  const newQty = existing.quantity - specifiedQty
-                  await changeQuantity(existing.id, newQty)
-                  const unitLabel = existing.unit && existing.unit !== 'item' ? ` ${existing.unit}` : ''
-                  const spoken = isHindiMode
-                    ? `${existing.name} ke ${specifiedQty}${unitLabel} kam kar diye. Ab ${newQty}${unitLabel} bache hain.`
-                    : `Removed ${specifiedQty}${unitLabel} of ${existing.name}. ${newQty}${unitLabel} remaining.`
-                  speakText(spoken)
-                  pushHistory('update', spoken)
-                } else {
-                  await removeItem(existing.id)
-                  const spoken = isHindiMode
-                    ? `${existing.name} list se hata diya gaya hai.`
-                    : `Removed ${existing.name} from your list.`
-                  speakText(spoken)
-                  pushHistory('remove', spoken)
-                }
-              } else {
-                speakText(isHindiMode ? `${itemNameToUse} list mein nahi mila.` : `Could not find ${itemNameToUse} in list.`)
-              }
+          if (existing) {
+            if (isPartialRemoval && existing.quantity > specifiedQty) {
+              const newQty = existing.quantity - specifiedQty
+              await changeQuantity(existing.id, newQty)
+              const unitLabel = existing.unit && existing.unit !== 'item' ? ` ${existing.unit}` : ''
+              const spoken = isHindiMode
+                ? `${existing.name} ke ${specifiedQty}${unitLabel} kam kar diye. Ab ${newQty}${unitLabel} bache hain.`
+                : `Removed ${specifiedQty}${unitLabel} of ${existing.name}. ${newQty}${unitLabel} remaining in your cart.`
+              speakText(spoken)
+              pushHistory('update', spoken)
             } else {
-              const qty = localParsed.items[0]?.quantity || 1
-              const unit = localParsed.items[0]?.unit || 'item'
-              const cat = mapToCategory(localParsed.items[0]?.category || 'other')
-
-              await addParsedItem({
-                name: itemNameToUse,
-                quantity: qty,
-                unit: unit,
-                category: cat,
-              }, true)
+              await removeItem(existing.id)
+              const spoken = isHindiMode
+                ? `${existing.name} list se hata diya gaya hai.`
+                : `Removed ${existing.name} from your list.`
+              speakText(spoken)
+              pushHistory('remove', spoken)
             }
-
-            setVoiceStatus('success')
+          } else {
+            speakText(isHindiMode ? `${cleanTarget} list mein nahi mila.` : `Could not find ${cleanTarget} in list.`)
           }
-        } catch (backendErr) {
-          console.warn('Voice processing fallback:', backendErr)
-
-          if (detected === 'remove') {
-            const targetName = cleanSpokenItemName(localParsed.items[0]?.name || transcript.trim())
-            const specifiedQty = localParsed.items[0]?.quantity || 0
-            const isPartialRemoval =
-              specifiedQty > 0 &&
-              !/(all|saare|saara|sab|pura|complete|everything)/i.test(transcript)
-
-            const existing = items.find(i => areItemsEquivalent(i.name, targetName))
-            if (existing) {
-              if (isPartialRemoval && existing.quantity > specifiedQty) {
-                const newQty = existing.quantity - specifiedQty
-                await changeQuantity(existing.id, newQty)
-                const unitLabel = existing.unit && existing.unit !== 'item' ? ` ${existing.unit}` : ''
-                const spoken = isHindiMode
-                  ? `${existing.name} ke ${specifiedQty}${unitLabel} kam kar diye. Ab ${newQty}${unitLabel} bache hain.`
-                  : `Removed ${specifiedQty}${unitLabel} of ${existing.name}. ${newQty}${unitLabel} remaining.`
-                speakText(spoken)
-                pushHistory('update', spoken)
-              } else {
-                await removeItem(existing.id)
-                const spoken = isHindiMode
-                  ? `${existing.name} list se hata diya gaya hai.`
-                  : `Removed ${existing.name} from your list.`
-                speakText(spoken)
-                pushHistory('remove', `Removed ${existing.name}`)
-              }
-            }
-          } else if (localParsed.items.length > 0) {
-            for (const item of localParsed.items) {
-              await addParsedItem(item, true)
-            }
-          } else if (transcript.trim()) {
-            const cleanItem = cleanSpokenItemName(transcript.trim()) || transcript.trim()
-            await addParsedItem({
-              name: cleanItem,
-              quantity: 1,
-              category: 'other',
-            }, true)
-          }
-          setLastResult(localParsed)
+          setLastResult({ transcript, intent: 'remove', items: [] })
           setVoiceStatus('success')
+          return
         }
+
+        // ADD_ITEM action (Instant Execution)
+        const itemsToAdd = localParsed.items.length > 0
+          ? localParsed.items
+          : [{ name: attachBrandIfPackaged(cleanSpokenItemName(transcript) || transcript), quantity: 1, unit: 'item', category: 'other' as Category }]
+
+        for (const itm of itemsToAdd) {
+          const cleanProdName = attachBrandIfPackaged(cleanSpokenItemName(itm.name) || itm.name)
+          await addParsedItem({
+            name: cleanProdName,
+            quantity: Math.max(1, Math.round(itm.quantity || 1)),
+            unit: itm.unit,
+            category: itm.category,
+          }, false) // Suppress duplicate speech
+        }
+
+        const itemDescriptions = itemsToAdd
+          .map((i) => {
+            const finalName = attachBrandIfPackaged(cleanSpokenItemName(i.name) || i.name)
+            return `${i.quantity} ${i.unit && i.unit !== 'item' ? i.unit + ' ' : ''}${finalName}`
+          })
+          .join(', ')
+
+        const replyText = isHindiMode
+          ? `${itemDescriptions} aapki shopping list mein jod diya hai.`
+          : `Added ${itemDescriptions} to your cart.`
+
+        speakText(replyText)
+        pushHistory('add', replyText)
+
+        setLastResult({
+          transcript,
+          intent: 'add',
+          items: itemsToAdd.map((i) => ({
+            name: attachBrandIfPackaged(cleanSpokenItemName(i.name) || i.name),
+            quantity: Math.max(1, Math.round(i.quantity || 1)),
+            unit: i.unit,
+            category: i.category,
+          })),
+        })
+
+        setVoiceStatus('success')
+        return
       } finally {
         isProcessingRef.current = false
         if (successTimer.current) clearTimeout(successTimer.current)
