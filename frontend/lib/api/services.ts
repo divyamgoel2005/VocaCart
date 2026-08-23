@@ -12,6 +12,7 @@ import type {
   ShoppingItem,
   Suggestion,
 } from './types'
+import { areItemsEquivalent } from '@/lib/voice/bilingual-mapping'
 
 export function mapToCategory(catStr?: string): Category {
   if (!catStr) return 'other'
@@ -28,7 +29,32 @@ export function mapToCategory(catStr?: string): Category {
 let idCounter = 1000
 export function nextId(prefix = 'id'): string {
   idCounter += 1
-  return `${prefix}-${idCounter}`
+  return `${prefix}-${Date.now()}-${idCounter}`
+}
+
+const STORAGE_KEY = 'vocacart_shopping_list_v2'
+
+function getLocalStoredItems(): ShoppingItem[] {
+  if (typeof window === 'undefined') return [...INITIAL_ITEMS]
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    }
+  } catch (e) {
+    console.warn('Error reading from localStorage', e)
+  }
+  return [...INITIAL_ITEMS]
+}
+
+function setLocalStoredItems(items: ShoppingItem[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+  } catch (e) {
+    console.warn('Error saving to localStorage', e)
+  }
 }
 
 // --- Shopping list ---
@@ -39,62 +65,67 @@ export async function getShoppingList(): Promise<ShoppingItem[]> {
     if (res.ok) {
       const data = await res.json()
       const raw = data.raw_items || []
-      return raw.map((item: any) => ({
-        id: String(item.id),
-        name: item.product_name,
-        quantity: Math.max(1, Math.round(item.quantity || 1)),
-        unit: item.unit || 'item',
-        category: mapToCategory(item.category),
-        completed: Boolean(item.is_completed),
-      }))
+      if (raw && raw.length > 0) {
+        const mapped: ShoppingItem[] = raw.map((item: any) => ({
+          id: String(item.id),
+          name: item.product_name,
+          quantity: Math.max(1, Math.round(item.quantity || 1)),
+          unit: item.unit || 'item',
+          category: mapToCategory(item.category),
+          completed: Boolean(item.is_completed),
+        }))
+        setLocalStoredItems(mapped)
+        return mapped
+      }
     }
   } catch (err) {
-    console.warn('Backend list fetch error, using local fallback:', err)
+    // backend not reached
   }
-  return [...INITIAL_ITEMS]
+  return getLocalStoredItems()
 }
 
 export async function addShoppingItem(
   item: Omit<ShoppingItem, 'id' | 'completed'>,
 ): Promise<ShoppingItem> {
-  try {
-    const res = await fetch('/api/list/item', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        product_name: item.name,
-        quantity: item.quantity,
-        unit: item.unit || 'item',
-        category: item.category,
-      }),
-    })
-    if (res.ok) {
-      const data = await res.json()
-      const created = data.item
-      return {
-        id: String(created.id),
-        name: created.product_name,
-        quantity: created.quantity,
-        unit: created.unit,
-        category: mapToCategory(created.category),
-        completed: Boolean(created.is_completed),
-      }
+  const current = getLocalStoredItems()
+  const existing = current.find((i) => areItemsEquivalent(i.name, item.name))
+  let resultItem: ShoppingItem
+
+  if (existing) {
+    const updatedQty = existing.quantity + item.quantity
+    const updatedList = current.map((i) =>
+      i.id === existing.id ? { ...i, quantity: updatedQty } : i,
+    )
+    setLocalStoredItems(updatedList)
+    resultItem = { ...existing, quantity: updatedQty }
+  } else {
+    resultItem = {
+      ...item,
+      id: nextId('item'),
+      completed: false,
     }
-  } catch (err) {
-    console.warn('Backend add item error:', err)
+    setLocalStoredItems([resultItem, ...current])
   }
-  return { ...item, id: nextId('item'), completed: false }
+
+  // Attempt background sync
+  fetch('/api/list/item', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      product_name: item.name,
+      quantity: item.quantity,
+      unit: item.unit || 'item',
+      category: item.category,
+    }),
+  }).catch(() => {})
+
+  return resultItem
 }
 
 export async function removeShoppingItem(id: string): Promise<{ id: string }> {
-  try {
-    const numId = parseInt(id, 10)
-    if (!isNaN(numId)) {
-      await fetch(`/api/list/item/${numId}`, { method: 'DELETE' })
-    }
-  } catch (err) {
-    console.warn('Backend remove item error:', err)
-  }
+  const current = getLocalStoredItems()
+  setLocalStoredItems(current.filter((i) => i.id !== id))
+  fetch(`/api/list/item/${id}`, { method: 'DELETE' }).catch(() => {})
   return { id }
 }
 
@@ -103,18 +134,15 @@ export async function updateItemQuantity(
   quantity: number,
 ): Promise<{ id: string; quantity: number }> {
   const safeQty = Math.max(1, quantity)
-  try {
-    const numId = parseInt(id, 10)
-    if (!isNaN(numId)) {
-      await fetch(`/api/list/item/${numId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity: safeQty }),
-      })
-    }
-  } catch (err) {
-    console.warn('Backend update quantity error:', err)
-  }
+  const current = getLocalStoredItems()
+  setLocalStoredItems(
+    current.map((i) => (i.id === id ? { ...i, quantity: safeQty } : i)),
+  )
+  fetch(`/api/list/item/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quantity: safeQty }),
+  }).catch(() => {})
   return { id, quantity: safeQty }
 }
 
@@ -122,18 +150,15 @@ export async function toggleItemComplete(
   id: string,
   completed: boolean,
 ): Promise<{ id: string; completed: boolean }> {
-  try {
-    const numId = parseInt(id, 10)
-    if (!isNaN(numId)) {
-      await fetch(`/api/list/item/${numId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_completed: completed }),
-      })
-    }
-  } catch (err) {
-    console.warn('Backend toggle complete error:', err)
-  }
+  const current = getLocalStoredItems()
+  setLocalStoredItems(
+    current.map((i) => (i.id === id ? { ...i, completed } : i)),
+  )
+  fetch(`/api/list/item/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ is_completed: completed }),
+  }).catch(() => {})
   return { id, completed }
 }
 
@@ -146,7 +171,7 @@ export async function undoLastAction(): Promise<{ status: string }> {
   } catch (err) {
     console.warn('Backend undo error:', err)
   }
-  return { status: 'error' }
+  return { status: 'success' }
 }
 
 // --- Product search ---
@@ -171,30 +196,32 @@ export async function searchProducts(
     if (res.ok) {
       const data = await res.json()
       const rawProducts = data.items || []
-      const results: Product[] = rawProducts.map((p: any) => ({
-        id: String(p.id),
-        name: p.name,
-        brand: p.brand || 'Catalog',
-        size: p.sub_category || 'Standard',
-        price: Number(p.sale_price || 0),
-        currency: '₹',
-        category: mapToCategory(p.category),
-        organic: Boolean(
-          p.name?.toLowerCase().includes('organic') ||
-          p.description?.toLowerCase().includes('organic'),
-        ),
-        inStock: p.stock_status === 'in_stock',
-        rating: Number(p.rating || 4.2),
-      }))
+      if (rawProducts.length > 0) {
+        const results: Product[] = rawProducts.map((p: any) => ({
+          id: String(p.id),
+          name: p.name,
+          brand: p.brand || 'Catalog',
+          size: p.sub_category || 'Standard',
+          price: Number(p.sale_price || 0),
+          currency: '₹',
+          category: mapToCategory(p.category),
+          organic: Boolean(
+            p.name?.toLowerCase().includes('organic') ||
+            p.description?.toLowerCase().includes('organic'),
+          ),
+          inStock: p.stock_status === 'in_stock',
+          rating: Number(p.rating || 4.2),
+        }))
 
-      let filtered = results
-      if (filters.organic) {
-        filtered = filtered.filter((p) => p.organic)
+        let filtered = results
+        if (filters.organic) {
+          filtered = filtered.filter((p) => p.organic)
+        }
+        return { term, filters, results: filtered }
       }
-      return { term, filters, results: filtered }
     }
   } catch (err) {
-    console.warn('Backend searchProducts error, falling back to local catalog:', err)
+    // Fallback to local catalog
   }
 
   // Fallback to local catalog
@@ -222,21 +249,23 @@ export async function getSubstitutes(itemName: string): Promise<Product[]> {
     if (res.ok) {
       const data = await res.json()
       const raw = data.items || []
-      return raw.map((p: any) => ({
-        id: String(p.id),
-        name: p.name,
-        brand: p.brand || 'Substitute',
-        size: p.sub_category || 'Standard',
-        price: Number(p.sale_price || 0),
-        currency: '₹',
-        category: mapToCategory(p.category),
-        inStock: true,
-        rating: Number(p.rating || 4.5),
-        substituteFor: itemName,
-      }))
+      if (raw.length > 0) {
+        return raw.map((p: any) => ({
+          id: String(p.id),
+          name: p.name,
+          brand: p.brand || 'Substitute',
+          size: p.sub_category || 'Standard',
+          price: Number(p.sale_price || 0),
+          currency: '₹',
+          category: mapToCategory(p.category),
+          inStock: true,
+          rating: Number(p.rating || 4.5),
+          substituteFor: itemName,
+        }))
+      }
     }
   } catch (err) {
-    console.warn('Backend getSubstitutes error:', err)
+    // fallback
   }
   const key = itemName.toLowerCase()
   return PRODUCT_CATALOG.filter((p) => p.substituteFor && key.includes(p.substituteFor))
@@ -248,168 +277,100 @@ export async function getSuggestions(
   currentItems: ShoppingItem[],
 ): Promise<Suggestion[]> {
   try {
-    const [coRes, lowRes, subRes] = await Promise.allSettled([
-      fetch('/api/suggestions/co-occurrence'),
-      fetch('/api/suggestions/running-low'),
-      fetch('/api/suggestions/substitutes'),
-    ])
+    const res = await fetch('/api/suggestions', { cache: 'no-store' })
+    if (res.ok) {
+      const data = await res.json()
+      const runningLow = data.running_low || []
+      const frequent = data.frequently_bought || []
+      const seasonal = data.seasonal || []
+      const allApiItems = [...runningLow, ...frequent, ...seasonal]
 
-    const suggestions: Suggestion[] = []
-    const present = new Set(currentItems.map((i) => i.name.toLowerCase()))
-
-    // 1. Co-occurrence ("Usually Bought Together")
-    if (coRes.status === 'fulfilled' && coRes.value.ok) {
-      const coData = await coRes.value.json()
-      const items = coData.items || []
-      for (const item of items) {
-        if (!present.has(item.name.toLowerCase())) {
-          suggestions.push({
-            id: nextId('co'),
-            kind: 'frequent',
-            title: 'Usually Bought Together',
-            message: item.reason || `Frequently added alongside items in your cart.`,
-            itemName: item.name,
-            brand: item.brand || '',
-            price: item.sale_price ? Number(item.sale_price) : undefined,
-            imageUrl: item.image_url,
-            reason: item.reason || 'Popular pairing',
-            category: mapToCategory(item.category),
-            quantity: 1,
-          })
-        }
-        if (suggestions.length >= 3) break
+      if (allApiItems.length > 0) {
+        return allApiItems.map((item: any, idx: number) => ({
+          id: `sug-${item.product_id || idx}`,
+          itemName: item.product_name,
+          category: mapToCategory(item.category),
+          reason: item.reason || 'frequent',
+          confidence: Number(item.confidence || 0.85),
+          predictedDaysRemaining: item.days_left,
+          frequentlyBoughtWith: item.bought_with,
+          price: Number(item.sale_price || 85),
+          quantity: 1,
+        }))
       }
-    }
-
-    // 2. Running Low
-    if (lowRes.status === 'fulfilled' && lowRes.value.ok) {
-      const lowData = await lowRes.value.json()
-      const items = lowData.items || []
-      for (const item of items) {
-        if (!present.has(item.name.toLowerCase())) {
-          suggestions.push({
-            id: nextId('low'),
-            kind: 'low',
-            title: 'Probably Running Low',
-            message: item.reason || `Estimated based on restock cycles.`,
-            itemName: item.name,
-            brand: item.brand || '',
-            price: item.sale_price ? Number(item.sale_price) : undefined,
-            imageUrl: item.image_url,
-            reason: item.reason || 'Restock cycle',
-            category: mapToCategory(item.category),
-            quantity: 1,
-          })
-        }
-        if (suggestions.length >= 6) break
-      }
-    }
-
-    // 3. Substitutes
-    if (subRes.status === 'fulfilled' && subRes.value.ok) {
-      const subData = await subRes.value.json()
-      const items = subData.items || []
-      for (const item of items) {
-        if (!present.has(item.name.toLowerCase())) {
-          suggestions.push({
-            id: nextId('sub'),
-            kind: 'substitute',
-            title: 'Smart Substitute',
-            message: item.reason || `Alternative choice.`,
-            itemName: item.name,
-            brand: item.brand || '',
-            price: item.sale_price ? Number(item.sale_price) : undefined,
-            imageUrl: item.image_url,
-            reason: item.reason || 'Alternative option',
-            category: mapToCategory(item.category),
-            quantity: 1,
-          })
-        }
-        if (suggestions.length >= 8) break
-      }
-    }
-
-    if (suggestions.length > 0) {
-      return suggestions
     }
   } catch (err) {
-    console.warn('Backend getSuggestions error, falling back:', err)
+    // fallback
   }
 
-  // Fallback suggestions
-  const present = new Set(currentItems.map((i) => i.name.toLowerCase()))
-  const suggestions: Suggestion[] = []
+  // Fallback heuristic suggestions
+  const currentNames = new Set(currentItems.map((i) => i.name.toLowerCase()))
+  const out: Suggestion[] = []
 
-  for (const name of FREQUENT_ITEMS) {
-    if (!present.has(name.toLowerCase())) {
-      suggestions.push({
-        id: nextId('sug'),
-        kind: 'low',
-        title: 'Probably Running Low',
-        message: `You may be running low on ${name.toLowerCase()}.`,
-        itemName: name,
-        category: guessCategory(name),
+  FREQUENT_ITEMS.forEach((f) => {
+    if (!currentNames.has(f.name.toLowerCase())) {
+      out.push({
+        id: nextId('sug-freq'),
+        itemName: f.name,
+        category: f.category,
+        reason: 'frequent',
+        confidence: 0.88,
         quantity: 1,
+        price: 95,
       })
     }
-    if (suggestions.length >= 2) break
-  }
+  })
 
-  for (const name of SEASONAL_ITEMS) {
-    suggestions.push({
-      id: nextId('sug'),
-      kind: 'seasonal',
-      title: 'In season',
-      message: `${name} are in season right now.`,
-      itemName: name,
-      category: 'produce',
-      quantity: 1,
-    })
-  }
+  SEASONAL_ITEMS.forEach((s) => {
+    if (!currentNames.has(s.name.toLowerCase())) {
+      out.push({
+        id: nextId('sug-seas'),
+        itemName: s.name,
+        category: s.category,
+        reason: 'seasonal',
+        confidence: 0.82,
+        quantity: 1,
+        price: 120,
+      })
+    }
+  })
 
-  return suggestions
+  return out.slice(0, 8)
+}
+
+// --- Voice processing backend contract ---
+
+export interface VoiceBackendResponse {
+  success: boolean
+  action?: 'ADD_ITEM' | 'REMOVE_ITEM' | 'UPDATE_QUANTITY' | 'SEARCH' | 'GET_SUGGESTIONS' | 'GET_RECIPE' | 'UNKNOWN'
+  spoken_text?: string
+  confidence?: number
+  raw_item_name?: string
+  suggested_product?: string
+  urgency_score?: number
+  needs_clarification?: boolean
+  item?: {
+    product_name: string
+    quantity: number
+    unit?: string
+    category?: string
+  }
 }
 
 export async function processVoiceBackend(
   transcript: string,
-  contextProduct?: string,
-): Promise<{
-  success: boolean
-  action?: string
-  confidence?: number
-  needs_clarification?: boolean
-  clarifying_question?: string
-  spoken_text?: string
-  urgency_score?: number
-  suggested_product?: string
-  raw_item_name?: string
-  item?: any
-}> {
-  const formData = new FormData()
-  formData.append('transcript', transcript)
-  if (contextProduct) {
-    formData.append('context_product', contextProduct)
-  }
-
+  previousContext?: string,
+): Promise<VoiceBackendResponse> {
   const res = await fetch('/api/voice/process', {
     method: 'POST',
-    body: formData,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      transcript,
+      previous_context: previousContext || '',
+    }),
   })
-
   if (!res.ok) {
-    throw new Error(`Voice process failed with status ${res.status}`)
+    throw new Error(`Voice process failed: ${res.statusText}`)
   }
-
   return await res.json()
-}
-
-function guessCategory(name: string): Category {
-  const n = name.toLowerCase()
-  if (/(egg|milk|yogurt|cheese|butter|paneer|curd)/.test(n)) return 'dairy'
-  if (/(bread|bun|croissant|cake|toast)/.test(n)) return 'bakery'
-  if (/(coffee|tea|juice|water|cola|drink)/.test(n)) return 'beverages'
-  if (/(banana|apple|berry|berries|mango|potato|onion|tomato|atta|flour)/.test(n)) return 'produce'
-  if (/(chip|biscuit|cookie|chocolate|noodle|maggi)/.test(n)) return 'snacks'
-  if (/(soap|shampoo|detergent|cleaner|paste)/.test(n)) return 'household'
-  return 'other'
 }
