@@ -1,4 +1,5 @@
 import { CATEGORY_KEYWORDS } from '@/lib/api/mock-data'
+import { attachBrandIfPackaged } from './bilingual-mapping'
 import type {
   Category,
   ParsedItem,
@@ -320,8 +321,9 @@ function parseFragment(fragment: string): ParsedItem | null {
   const name = cleanSpokenItemName(rawName)
   if (!name) return null
 
-  const finalUnit = inferNaturalUnit(name, unit)
-  return { name, quantity, unit: finalUnit, category: classify(name) }
+  const brandedName = attachBrandIfPackaged(name)
+  const finalUnit = inferNaturalUnit(brandedName, unit)
+  return { name: brandedName, quantity, unit: finalUnit, category: classify(brandedName) }
 }
 
 export function detectIntent(text: string): VoiceIntent {

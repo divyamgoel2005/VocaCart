@@ -49,7 +49,7 @@ import {
   isUndoCommand,
   isCheckOffCommand,
 } from '@/lib/voice/parser'
-import { areItemsEquivalent } from '@/lib/voice/bilingual-mapping'
+import { areItemsEquivalent, attachBrandIfPackaged } from '@/lib/voice/bilingual-mapping'
 import { matchRecipeBundle } from '@/lib/voice/recipes'
 import { checkConversationalQuery } from '@/lib/voice/conversational-responses'
 import { formatHindiForTTS } from '@/lib/voice/transliterate'
@@ -305,7 +305,8 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
   // --- list mutations with Persistent State ---
   const addParsedItem = useCallback(
     async (parsed: ParsedItem, shouldSpeak = true) => {
-      const cleanName = cleanSpokenItemName(parsed.name) || parsed.name
+      const baseName = cleanSpokenItemName(parsed.name) || parsed.name
+      const cleanName = attachBrandIfPackaged(baseName)
 
       setItems((prev) => {
         const existingIndex = prev.findIndex((i) => areItemsEquivalent(i.name, cleanName))

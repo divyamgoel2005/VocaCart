@@ -339,3 +339,89 @@ export function areItemsEquivalent(name1: string, name2: string): boolean {
 
   return false
 }
+
+export const DEFAULT_BRAND_ASSOCIATIONS: Record<string, string> = {
+  milk: 'Amul Milk',
+  doodh: 'Amul Milk',
+  dudh: 'Amul Milk',
+  butter: 'Amul Butter',
+  makhan: 'Amul Butter',
+  makkhan: 'Amul Butter',
+  cheese: 'Amul Cheese',
+  curd: 'Amul Masti Dahi',
+  dahi: 'Amul Masti Dahi',
+  paneer: 'Amul Fresh Paneer',
+  ghee: 'Amul Pure Ghee',
+  bread: 'Britannia Bread',
+  pav: 'Britannia Bread',
+  biscuit: 'Parle-G Biscuits',
+  biscuits: 'Parle-G Biscuits',
+  cookie: 'Good Day Butter Cookies',
+  cookies: 'Good Day Butter Cookies',
+  atta: 'Aashirvaad Superior MP Atta',
+  aata: 'Aashirvaad Superior MP Atta',
+  flour: 'Aashirvaad Superior MP Atta',
+  salt: 'Tata Salt',
+  namak: 'Tata Salt',
+  sugar: 'Madhur Pure Sugar',
+  cheeni: 'Madhur Pure Sugar',
+  shakkar: 'Madhur Pure Sugar',
+  tea: 'Tata Tea Premium',
+  chai: 'Tata Tea Premium',
+  coffee: 'Nescafé Classic',
+  oil: 'Fortune Sunflower Oil',
+  tel: 'Fortune Sunflower Oil',
+  noodle: 'Maggi 2-Minute Noodles',
+  noodles: 'Maggi 2-Minute Noodles',
+  maggi: 'Maggi 2-Minute Noodles',
+  chips: "Lay's Classic Salted",
+  soap: 'Dettol Soap',
+  detergent: 'Surf Excel Detergent',
+  surf: 'Surf Excel Detergent',
+  toothpaste: 'Colgate Strong Teeth',
+  paste: 'Colgate Strong Teeth',
+}
+
+function toTitleCase(str: string): string {
+  return str
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
+export function attachBrandIfPackaged(itemName: string): string {
+  if (!itemName) return ''
+  const trimmed = itemName.trim()
+  const lower = trimmed.toLowerCase()
+
+  // 1. Fresh fruits or vegetables -> strictly NO brand prefix
+  const produceList = [
+    'tomato', 'tamatar', 'potato', 'aloo', 'aalu', 'onion', 'pyaz', 'apple', 'seb',
+    'banana', 'kela', 'orange', 'santra', 'grapes', 'angoor', 'mango', 'aam',
+    'ginger', 'adrak', 'garlic', 'lehsun', 'chilli', 'mirchi', 'lemon', 'nimbu',
+    'cucumber', 'kheera', 'carrot', 'gajar', 'coriander', 'dhaniya', 'spinach', 'palak',
+    'gobhi', 'gobi', 'cabbage', 'peas', 'matar', 'bhindi', 'okra', 'brinjal', 'baingan',
+    'papaya', 'papita', 'watermelon', 'tarbooj', 'guava', 'amrood', 'pomegranate', 'anar',
+    'vegetable', 'vegetables', 'fruit', 'fruits', 'subzi', 'sabzi', 'fal', 'egg', 'eggs', 'anda', 'ande'
+  ]
+  if (produceList.some((p) => lower === p || lower.includes(p))) {
+    return toTitleCase(trimmed)
+  }
+
+  // 2. Check if a brand is already explicitly mentioned by the user (e.g. Oreo, Bourbon, Amul, Fortune, Lays)
+  const explicitBrand = extractBrand(lower)
+  if (explicitBrand) {
+    return toTitleCase(trimmed)
+  }
+
+  // 3. Match generic packaged grocery to default trusted brand
+  for (const [k, branded] of Object.entries(DEFAULT_BRAND_ASSOCIATIONS)) {
+    if (lower === k || lower.split(/\s+/).includes(k)) {
+      return branded
+    }
+  }
+
+  return toTitleCase(trimmed)
+}
