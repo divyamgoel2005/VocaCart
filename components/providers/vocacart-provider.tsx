@@ -163,57 +163,35 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const strings = useMemo(() => getStrings(language), [language])
 
-  // --- Dedicated Indian Voice Selector (hi-IN & en-IN) ---
-  const getBestIndianVoice = useCallback((isHindi: boolean): SpeechSynthesisVoice | null => {
+  // --- Unified Bilingual Indian Voice Persona (Consistent Single Speaker for Hindi & English) ---
+  const getUnifiedIndianVoice = useCallback((): SpeechSynthesisVoice | null => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
     const voices = window.speechSynthesis.getVoices()
     if (!voices || voices.length === 0) return null
 
-    // 1. If speaking Hindi / Hinglish:
-    if (isHindi) {
-      // Look for natural Hindi voices first (Google हिन्दी, Microsoft Swara/Madhur/Kalpana, Apple Lekha)
-      const hindiVoice = voices.find(
-        (v) =>
-          v.lang === 'hi-IN' ||
-          v.lang === 'hi_IN' ||
-          /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
-      )
-      if (hindiVoice) return hindiVoice
-
-      // Fallback to Indian English voice (which pronounces Hinglish words with authentic Indian accent)
-      const indianEnVoice = voices.find(
-        (v) =>
-          v.lang === 'en-IN' ||
-          v.lang === 'en_IN' ||
-          /(\ben-in\b|neerja|prabhat|heera|rishi|veena|india|indian)/i.test(v.name + ' ' + v.lang)
-      )
-      if (indianEnVoice) return indianEnVoice
-    }
-
-    // 2. If speaking English:
-    // Prioritize natural Indian English voices (Microsoft Neerja/Prabhat/Heera, Google English India, Apple Rishi/Veena)
-    const indianEnVoice = voices.find(
-      (v) =>
-        v.lang === 'en-IN' ||
-        v.lang === 'en_IN' ||
-        /(\ben-in\b|neerja|prabhat|heera|rishi|veena|india|indian)/i.test(v.name + ' ' + v.lang)
-    )
-    if (indianEnVoice) return indianEnVoice
-
-    // Fallback to Hindi voice
-    const hindiVoice = voices.find(
+    // 1. First priority: High-quality natural Indian bilingual voices
+    // (Google हिन्दी / Google English (India) / Microsoft Swara Online (Natural) / Microsoft Neerja Online (Natural) / Apple Lekha / Rishi)
+    const primaryIndianVoice = voices.find(
       (v) =>
         v.lang === 'hi-IN' ||
         v.lang === 'hi_IN' ||
-        /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
+        v.lang === 'en-IN' ||
+        v.lang === 'en_IN' ||
+        /(\bhi-in\b|\ben-in\b|swara|neerja|madhur|prabhat|kalpana|heera|lekha|rishi|veena|google हिन्दी|google.*india)/i.test(
+          v.name + ' ' + v.lang
+        )
     )
-    if (hindiVoice) return hindiVoice
+    if (primaryIndianVoice) return primaryIndianVoice
 
-    // Generic natural/female voice fallback
+    // 2. Fallback: Any voice with 'hindi' or 'india' in the descriptor
+    const fallbackIndian = voices.find((v) => /hindi|india/i.test(v.name + ' ' + v.lang))
+    if (fallbackIndian) return fallbackIndian
+
+    // 3. Fallback: Natural female/conversational voice
     return voices.find((v) => /natural|female|google|samantha/i.test(v.name)) || voices[0] || null
   }, [])
 
-  // --- Single Human-Fluent Indian TTS (Text to Speech) Helper ---
+  // --- Single Human-Fluent Bilingual TTS (Text to Speech) Helper ---
   const speakText = useCallback(
     (text?: string, urgency = 0.2) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) return
@@ -225,11 +203,11 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
           const isHindi =
             language === 'hi' ||
             language === 'hinglish' ||
-            /(karo|karein|hata|hatao|daal|daalo|chahiye|hai|hain|samaan|kaise|kaun|kya|batao|doodh|tamatar|aalu|pyaz|jod|jod diya|diya gaya|bache|kam kar|aapki|saare|shukriya|alvida|badhiya)/i.test(
+            /(karo|karein|hata|hatao|daal|daalo|chahiye|hai|hain|samaan|kaise|kaun|kya|batao|doodh|tamatar|aalu|pyaz|jod|jod diya|diya gaya|bache|kam kar|aapki|saare|shukriya|alvida|badhiya|mila)/i.test(
               text
             )
 
-          const voice = getBestIndianVoice(isHindi)
+          const voice = getUnifiedIndianVoice()
           const isNativeHindiVoice = Boolean(
             voice &&
               (voice.lang === 'hi-IN' ||
@@ -237,20 +215,20 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
                 /hindi|swara|madhur|kalpana|lekha|हिन्दी/i.test(voice.name))
           )
 
-          // If native Hindi voice is chosen, translate words to Devanagari so pronunciation is 100% natural and native
+          // If native Hindi voice is chosen and speaking Hindi, format with Devanagari for 100% native diction
           const textToSpeak = isHindi && isNativeHindiVoice ? formatHindiForTTS(text) : text
 
           const utterance = new SpeechSynthesisUtterance(textToSpeak)
 
           if (voice) {
             utterance.voice = voice
-            utterance.lang = voice.lang || (isHindi ? 'hi-IN' : 'en-IN')
+            utterance.lang = isHindi ? (voice.lang.startsWith('hi') ? voice.lang : 'hi-IN') : 'en-IN'
           } else {
             utterance.lang = isHindi ? 'hi-IN' : 'en-IN'
           }
 
-          // Fluent, lively human conversational rate (1.08x - 1.15x)
-          utterance.rate = urgency > 0.65 ? 1.16 : 1.10
+          // Same brisk, energetic human conversational rate (1.14x) across both Hindi & English!
+          utterance.rate = urgency > 0.65 ? 1.20 : 1.14
           utterance.pitch = 1.02
           utterance.volume = 1.0
 
@@ -260,7 +238,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
         console.warn('Speech synthesis error:', err)
       }
     },
-    [getBestIndianVoice, language]
+    [getUnifiedIndianVoice, language]
   )
 
   // Pre-load voices on mount for prompt TTS
