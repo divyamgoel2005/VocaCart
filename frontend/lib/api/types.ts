@@ -102,7 +102,7 @@ export interface VoiceCommandResult {
   filters?: SearchFilters
 }
 
-export type LanguageCode = 'en' | 'hi' | 'hinglish' | 'es'
+export type LanguageCode = 'en' | 'hi' | 'hinglish'
 
 export interface LanguageOption {
   code: LanguageCode

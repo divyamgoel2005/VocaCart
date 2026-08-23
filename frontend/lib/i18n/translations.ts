@@ -4,7 +4,6 @@ export const LANGUAGES: LanguageOption[] = [
   { code: 'en', label: 'English', native: 'English', hint: 'Buy 2 bottles of milk', bcp47: 'en-US' },
   { code: 'hi', label: 'Hindi', native: 'हिन्दी', hint: 'दो बोतल दूध खरीदो', bcp47: 'hi-IN' },
   { code: 'hinglish', label: 'Hinglish', native: 'Hinglish', hint: '2 milk aur 5 apple add karo', bcp47: 'en-IN' },
-  { code: 'es', label: 'Spanish', native: 'Español', hint: 'Compra 2 botellas de leche', bcp47: 'es-ES' },
 ]
 
 // UI copy keyed by language. Adding a language = add one entry here.
@@ -113,32 +112,6 @@ export const TRANSLATIONS: Record<LanguageCode, Strings> = {
     noSuggestions: 'Abhi koi pick nahi — list poori lag rahi hai',
     items: 'items',
     interpreted: 'Samjha gaya',
-  },
-  es: {
-    greeting: 'Qué bueno verte',
-    prompt: '¿Qué vamos a comprar?',
-    tapToSpeak: 'Toca para hablar',
-    listening: 'Escuchando…',
-    processing: 'Entendiendo…',
-    success: 'Listo',
-    errorGeneric: 'No te entendí',
-    hint: 'Prueba: “Quiero 2 botellas de leche y 5 manzanas”',
-    assistantMode: 'Asistente de Voz',
-    searchMode: 'Buscar y Añadir',
-    cartTitle: 'Tu lista',
-    cartEmpty: 'Tu lista está vacía',
-    cartEmptyHint: 'Di lo que necesitas y aparecerá aquí, ordenado.',
-    smartPicks: 'Sugerencias',
-    smartPicksSub: 'Según cómo compras',
-    searchTitle: 'Buscar y Añadir Productos',
-    searchSub: 'Escribe o habla para buscar o añadir',
-    activityTitle: 'Actividad reciente',
-    activitySub: 'Todo lo que dijiste, en orden',
-    add: 'Añadir',
-    noResults: 'No se encontró nada',
-    noSuggestions: 'Sin sugerencias por ahora — tu lista se ve completa',
-    items: 'artículos',
-    interpreted: 'Interpretado como',
   },
 }
 
