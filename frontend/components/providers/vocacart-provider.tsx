@@ -162,26 +162,102 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const strings = useMemo(() => getStrings(language), [language])
 
-  // --- Single TTS (Text to Speech) Helper ---
-  const speakText = useCallback((text?: string, urgency = 0.2) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) return
-    try {
-      window.speechSynthesis.cancel()
-      setTimeout(() => {
-        const utterance = new SpeechSynthesisUtterance(text)
-        utterance.rate = urgency > 0.65 ? 1.15 : 1.0
-        utterance.pitch = 1.0
-        window.speechSynthesis.speak(utterance)
-      }, 50)
-    } catch (err) {
-      console.warn('Speech synthesis error:', err)
+  // --- Dedicated Indian Voice Selector (hi-IN & en-IN) ---
+  const getBestIndianVoice = useCallback((isHindi: boolean): SpeechSynthesisVoice | null => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
+    const voices = window.speechSynthesis.getVoices()
+    if (!voices || voices.length === 0) return null
+
+    // 1. If speaking Hindi / Hinglish:
+    if (isHindi) {
+      // Look for natural Hindi voices first (Google हिन्दी, Microsoft Swara/Madhur/Kalpana, Apple Lekha)
+      const hindiVoice = voices.find(
+        (v) =>
+          v.lang === 'hi-IN' ||
+          v.lang === 'hi_IN' ||
+          /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
+      )
+      if (hindiVoice) return hindiVoice
+
+      // Fallback to Indian English voice (which pronounces Hinglish words with authentic Indian accent)
+      const indianEnVoice = voices.find(
+        (v) =>
+          v.lang === 'en-IN' ||
+          v.lang === 'en_IN' ||
+          /(\ben-in\b|neerja|prabhat|heera|rishi|veena|india|indian)/i.test(v.name + ' ' + v.lang)
+      )
+      if (indianEnVoice) return indianEnVoice
     }
+
+    // 2. If speaking English:
+    // Prioritize natural Indian English voices (Microsoft Neerja/Prabhat/Heera, Google English India, Apple Rishi/Veena)
+    const indianEnVoice = voices.find(
+      (v) =>
+        v.lang === 'en-IN' ||
+        v.lang === 'en_IN' ||
+        /(\ben-in\b|neerja|prabhat|heera|rishi|veena|india|indian)/i.test(v.name + ' ' + v.lang)
+    )
+    if (indianEnVoice) return indianEnVoice
+
+    // Fallback to Hindi voice
+    const hindiVoice = voices.find(
+      (v) =>
+        v.lang === 'hi-IN' ||
+        v.lang === 'hi_IN' ||
+        /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
+    )
+    if (hindiVoice) return hindiVoice
+
+    // Generic natural/female voice fallback
+    return voices.find((v) => /natural|female/i.test(v.name)) || voices[0] || null
   }, [])
+
+  // --- Single Indian TTS (Text to Speech) Helper ---
+  const speakText = useCallback(
+    (text?: string, urgency = 0.2) => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) return
+
+      try {
+        window.speechSynthesis.cancel()
+
+        setTimeout(() => {
+          const isHindi =
+            language === 'hi' ||
+            language === 'hinglish' ||
+            /(karo|karein|hata|hatao|daal|daalo|chahiye|hai|hain|samaan|kaise|kaun|kya|batao|doodh|tamatar|aalu|pyaz|jod|jod diya|diya gaya|bache|kam kar|aapki)/i.test(
+              text
+            )
+
+          const utterance = new SpeechSynthesisUtterance(text)
+          const voice = getBestIndianVoice(isHindi)
+
+          if (voice) {
+            utterance.voice = voice
+            utterance.lang = voice.lang || (isHindi ? 'hi-IN' : 'en-IN')
+          } else {
+            utterance.lang = isHindi ? 'hi-IN' : 'en-IN'
+          }
+
+          utterance.rate = urgency > 0.65 ? 1.05 : 0.95 // Optimal natural cadence for Indian English/Hindi
+          utterance.pitch = 1.0
+          utterance.volume = 1.0
+
+          window.speechSynthesis.speak(utterance)
+        }, 50)
+      } catch (err) {
+        console.warn('Speech synthesis error:', err)
+      }
+    },
+    [getBestIndianVoice, language]
+  )
 
   // Pre-load voices on mount for prompt TTS
   useEffect(() => {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.getVoices()
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices()
+      }
     }
   }, [])
 
