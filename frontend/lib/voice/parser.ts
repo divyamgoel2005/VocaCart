@@ -66,25 +66,32 @@ export const HINDI_STOP_WORDS = new Set([
   'the', 'thi', 'aur', 'karna', 'hoga', 'hogi', 'aao',
   // English filler words
   'of', 'the', 'some', 'please', 'a', 'an', 'i', 'want', 'need', 'to',
-  'buy', 'get', 'add', 'me', 'my', 'and', 'also', 'just', 'item', 'items'
+  'buy', 'get', 'add', 'me', 'my', 'and', 'also', 'just', 'item', 'items', 'all'
 ])
 
 export function isClearAllCommand(text: string): boolean {
   const t = text.toLowerCase().trim()
 
-  // 1. English Clear All patterns
-  if (/\b(remove all|delete all|clear all|clear list|clear cart|empty list|empty cart|remove everything|delete everything|clean list|reset list|drop all|delete all items|remove all items)\b/i.test(t)) {
+  // If a specific grocery item is mentioned (e.g. "remove all the milk", "remove all apples", "delete all eggs", "saara doodh hata do", "saare tamatar hata do"),
+  // this is a TARGETED item removal, NOT a full cart clear!
+  const hasSpecificGrocery = /\b(milk|doodh|dudh|butter|makhan|cheese|paneer|curd|dahi|tomato|tamatar|potato|aloo|onion|pyaz|apple|seb|banana|kela|bread|atta|salt|namak|tea|chai|coffee|maggi|oil|biscuit|biscuits|rice|chawal|dal|eggs|anda|ande)\b/i.test(t)
+  if (hasSpecificGrocery) {
+    return false
+  }
+
+  // 1. English Clear All patterns (strictly matching "all items", "everything", "clear cart", etc.)
+  if (/\b(remove all items|delete all items|clear all items|clear list|clear cart|empty list|empty cart|remove everything|delete everything|clean list|clean cart|reset list|drop all|delete all$|remove all$|clear all$)\b/i.test(t)) {
     return true
   }
 
   // 2. Hindi / Hinglish Clear All patterns
-  if (/(saare|saara|sabhi|sab|pura|poori|poora)\s+(items?|samaan|saman|list|cart|kuch)?\s*(ko)?\s*(hata|nikal|delete|remove|saaf|khali|clear)/i.test(t)) {
+  if (/(saare|saara|sabhi|sab|pura|poori|poora)\s+(items?|samaan|saman|list|cart|kuch)\s*(ko)?\s*(hata|nikal|delete|remove|saaf|khali|clear)/i.test(t)) {
     return true
   }
   if (/(list|cart)\s*(ko)?\s*(khali|saaf|empty|clear)\s*(kar|karo|karna|do|kardo)/i.test(t)) {
     return true
   }
-  if (/(sab|sabhi|saare|saara)\s*(kuch)?\s*(hatao|hata do|nikalo|nikal do|delete karo|remove karo|hata do na)/i.test(t)) {
+  if (/^(sab|sabhi|saare|saara|poora)\s*(kuch)?\s*(hatao|hata do|nikalo|nikal do|delete karo|remove karo|hata do na|khali karo)$/i.test(t)) {
     return true
   }
   if (/(kuch|kuch bhi)\s*mat\s*(rakho|rakhna)/i.test(t)) {
@@ -135,6 +142,7 @@ export function cleanSpokenItemName(raw: string): string {
   
   const tokens = raw
     .trim()
+    .replace(/\b(all the|all of the|all|saara|saare|sabhi)\b/gi, ' ')
     .replace(/[^a-zA-Z0-9\s.]/g, ' ')
     .split(/\s+/)
     .filter(Boolean)
@@ -258,25 +266,23 @@ export function detectIntent(text: string): VoiceIntent {
   if (isTotalBillCommand(t)) return 'total_bill'
   if (isUndoCommand(t)) return 'undo'
   if (/\b(find|search|show|look for|dhoondo|dikhao|kya hai)\b/.test(t)) return 'search'
-  if (/\b(remove|delete|drop|take out|cancel|hatao|hata do|hata|nikalo|nikal do|mat lena)\b/.test(t)) return 'remove'
-  if (/\b(change|update|make it|set|badlo)\b/.test(t)) return 'update'
-  if (/\b(add|buy|get|want|need|put|grab|jodo|daalo|daal do|le lo|chahiye|lao)\b/.test(t)) return 'add'
+  if (/\b(remove|delete|drop|hata|nikal|hatao|nikalo|hata do|nikal do)\b/.test(t)) return 'remove'
   return 'add'
 }
 
-function parseSearch(text: string): { term: string; filters: SearchFilters } {
+function parseSearch(transcript: string): { term: string; filters: SearchFilters } {
+  const working = transcript.toLowerCase()
   const filters: SearchFilters = {}
-  let working = text.toLowerCase()
 
-  const priceMatch = working.match(/(?:under|below|less than|upto|up to|se kam)\s*([₹$€£]?)\s*(\d+(?:\.\d+)?)/)
-  if (priceMatch) {
-    filters.maxPrice = parseFloat(priceMatch[2])
-    filters.currency = priceMatch[1] || '₹'
-    working = working.replace(priceMatch[0], ' ')
+  if (working.includes('organic') || working.includes('natural')) {
+    filters.organic = true
   }
 
-  if (/\borganic\b/.test(working)) {
-    filters.organic = true
+  const priceMatch =
+    working.match(/(?:under|below|less than|max|maximum|kam)\s+(?:₹|\$|rs\.?|rupees)?\s*(\d+(?:\.\d+)?)/i) ||
+    working.match(/(\d+(?:\.\d+)?)\s*(?:₹|\$|rs\.?|rupees)?\s*(?:se kam|ke andar)/i)
+  if (priceMatch) {
+    filters.maxPrice = parseFloat(priceMatch[1])
   }
 
   const sizeMatch = working.match(/(\d+(?:\.\d+)?)\s?(litre|litres|liter|l|ml|kg|g|gram|grams)\b/)
