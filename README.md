@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🎙️ VocaCart — AI-Powered Multilingual Voice Shopping Assistant
+# VocaCart — AI-Powered Multilingual Voice Shopping Assistant
 
 [![Live Deployment](https://img.shields.io/badge/Live%20Demo-voca--cart.vercel.app-blue?style=for-the-badge&logo=vercel)](https://voca-cart.vercel.app)
 [![Next.js 14](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
@@ -13,31 +13,31 @@
 
 ---
 
-### 🌐 [Click Here to Try the Live Application](https://voca-cart.vercel.app)
+### Live Application URL: [https://voca-cart.vercel.app](https://voca-cart.vercel.app)
 
 </div>
 
 ---
 
-## 🌟 Highlights & Key Features
+## Highlights and Key Features
 
-- ⚡ **0ms Real-Time Voice Processing**: Instantaneous client-side parsing and optimistic UI updates — no blocking network latency when speaking.
-- 🗣️ **Fluent Bilingual Conversational AI**: Seamlessly understands and responds in **English**, **Hindi (हिन्दी)**, and **Hinglish**.
-- 🏷️ **Smart FMCG Brand Attachment**: Automatically associates trusted Indian household brands for packaged goods (*Milk* ➔ *Amul Milk*, *Atta* ➔ *Aashirvaad Atta*, *Salt* ➔ *Tata Salt*) while keeping fresh produce (*Tomatoes*, *Apples*) clean.
-- 🎯 **Exact Brand Preservation**: Explicit brands like *Oreo Biscuits*, *Mother Dairy Milk*, or *Bourbon* are preserved exactly as spoken.
-- 🎙️ **Dual-Persona Neural Speech Synthesis**: Authentic Hindi pronunciation via Devanagari transliteration and crisp, energetic female English voice playback.
-- 🍳 **One-Shot Recipe Bundles**: Add complete multi-item ingredient packages with a single natural phrase (e.g. *"Chai ka samaan"*).
-- 🧹 **Universal Cart Control**: Clear, empty, or delete the whole cart, or perform partial quantity reductions (*"delete 5 packets"*).
-- 💬 **Interactive Chit-Chat & Jokes**: Supports conversational small talk, jokes, capability queries, and status checks.
-- 💾 **Persistent Offline-First Cart**: State is synchronized to local storage and restored automatically across page refreshes.
+- **0ms Real-Time Voice Processing**: Instantaneous client-side parsing and optimistic UI updates with zero blocking network latency when speaking.
+- **Fluent Bilingual Conversational AI**: Seamlessly understands and responds in **English**, **Hindi**, and **Hinglish**.
+- **Smart FMCG Brand Attachment**: Automatically associates trusted Indian household brands for packaged goods (*Milk* -> *Amul Milk*, *Atta* -> *Aashirvaad Atta*, *Salt* -> *Tata Salt*) while keeping fresh produce (*Tomatoes*, *Apples*) clean.
+- **Exact Brand Preservation**: Explicit brands like *Oreo Biscuits*, *Mother Dairy Milk*, or *Bourbon* are preserved exactly as spoken.
+- **Dual-Persona Neural Speech Synthesis**: Authentic Hindi pronunciation via Devanagari transliteration and crisp, energetic female English voice playback.
+- **One-Shot Recipe Bundles**: Add complete multi-item ingredient packages with a single natural phrase (such as *"Chai ka samaan"*).
+- **Universal Cart Control**: Clear, empty, or delete the whole cart, or perform partial quantity reductions (*"delete 5 packets"*).
+- **Interactive Chit-Chat and Jokes**: Supports conversational small talk, jokes, capability queries, and status checks.
+- **Persistent Offline-First Cart**: State is synchronized to local storage and restored automatically across page refreshes.
 
 ---
 
-## 🎯 What to Try (Voice Commands Guide)
+## What to Try (Voice Commands Guide)
 
 Try tapping the microphone button (or pressing Spacebar) and saying any of the following:
 
-### 1. 🛒 Adding & Modifying Groceries
+### 1. Adding and Modifying Groceries
 | Language | Voice Command Example | What Happens |
 | :--- | :--- | :--- |
 | **English** | *"Add 2 packets of milk and 1 kg tomatoes"* | Adds 2 packs **Amul Milk** & 1 kg **Tomatoes** |
@@ -45,7 +45,7 @@ Try tapping the microphone button (or pressing Spacebar) and saying any of the f
 | **Hindi** | *"1 packet doodh aur 2 kg aalu daal do"* | Adds 1 pack **Amul Milk** & 2 kg **Potatoes** |
 | **Hinglish** | *"2 bread aur 1 makhan add karo"* | Adds **Britannia Bread** & **Amul Butter** |
 
-### 2. 🍳 Recipe Bundles (Multi-Item Instant Add)
+### 2. Recipe Bundles (Multi-Item Instant Add)
 | Voice Command | Items Added Automatically | Spoken Confirmation |
 | :--- | :--- | :--- |
 | *"Chai ka samaan"* / *"Make tea"* | Tata Tea Premium, Amul Milk, Madhur Sugar, Fresh Ginger | *"Chai banane ka saara samaan list mein jod diya hai"* |
@@ -53,28 +53,28 @@ Try tapping the microphone button (or pressing Spacebar) and saying any of the f
 | *"Breakfast items"* | Britannia Bread, Eggs, Amul Butter, Amul Milk | *"Added breakfast essentials to your cart"* |
 | *"Dal chawal"* | Basmati Rice, Toor Dal, Amul Pure Ghee, Tata Salt | *"Dal chawal ka samaan jod diya hai"* |
 
-### 3. 💬 Jokes & Small Talk (Chit-Chat)
+### 3. Jokes and Small Talk (Chit-Chat)
 | Voice Command | Assistant Response |
 | :--- | :--- |
 | *"Tell me a joke"* | *"Why did the tomato blush? Because it saw the salad dressing!"* |
 | *"Ek joke sunao"* | *"Pati ne patni se pucha: Aaj khane mein kya bana rahi ho? Patni boli: Gussa! Pati bola: Theek hai, thoda kam namak daalna!"* |
-| *"How are you?"* / *"Kaise ho"* | *"I'm doing wonderful! What would you like to add today?"* / *"मैं बिल्कुल बढ़िया हूँ! आपकी मदद के लिए तैयार हूँ।"* |
+| *"How are you?"* / *"Kaise ho"* | *"I'm doing wonderful! What would you like to add today?"* / *"Main bilkul badhiya hoon! Aapki madad ke liye tayar hoon."* |
 | *"Who are you?"* / *"Tum kaun ho"* | *"I am VocaCart, your AI voice grocery shopping assistant!"* |
 
-### 4. 🔢 Quantity Adjustments & Removals
-- **Partial Reduction**: Cart has 10 milk packets ➔ Say: *"Remove 5 packets of milk"* ➔ Cart updates to 5 remaining.
-- **Single Item Delete**: *"Remove all the milk"* or *"Tamatar hata do"* ➔ Removes only that specific item.
-- **Complete Cart Reset**: *"Empty the cart"*, *"Remove all cart"*, *"Cart khali karo"*, or *"Sab hata do"* ➔ Clears the entire cart with confirmation.
+### 4. Quantity Adjustments and Removals
+- **Partial Reduction**: Cart has 10 milk packets -> Say: *"Remove 5 packets of milk"* -> Cart updates to 5 remaining.
+- **Single Item Delete**: *"Remove all the milk"* or *"Tamatar hata do"* -> Removes only that specific item.
+- **Complete Cart Reset**: *"Empty the cart"*, *"Remove all cart"*, *"Cart khali karo"*, or *"Sab hata do"* -> Clears the entire cart with confirmation.
 
-### 5. 🧾 Inquiries, Totals & Undo
+### 5. Inquiries, Totals and Undo
 - **Read List**: *"What's in my cart?"* / *"List mein kya kya hai?"*
 - **Total Bill**: *"What is my total bill?"* / *"Estimated total kitna hua?"*
-- **Check-off**: *"Doodh le liya"* / *"Mark milk as done"* ➔ Checks off item in the list.
-- **Undo**: *"Undo"* / *"Wapas lo"* ➔ Reverts the previous cart mutation.
+- **Check-off**: *"Doodh le liya"* / *"Mark milk as done"* -> Checks off item in the list.
+- **Undo**: *"Undo"* / *"Wapas lo"* -> Reverts the previous cart mutation.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```
                                   +-----------------------------------------------------+
@@ -117,27 +117,27 @@ Try tapping the microphone button (or pressing Spacebar) and saying any of the f
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 | Domain | Technologies Used |
 | :--- | :--- |
 | **Frontend Framework** | **Next.js 14** (App Router), **React 19**, **TypeScript** |
-| **Styling & UI** | **Tailwind CSS**, Glassmorphic Design, **Lucide Icons** |
-| **Voice & Speech** | **Web Speech Recognition API**, **SpeechSynthesis API** (Neural Voices) |
-| **AI & NLP** | **Google Gemini 2.5 Flash**, Custom Deterministic Bilingual Slot Parser |
+| **Styling and UI** | **Tailwind CSS**, Glassmorphic Design, **Lucide Icons** |
+| **Voice and Speech** | **Web Speech Recognition API**, **SpeechSynthesis API** (Neural Voices) |
+| **AI and NLP** | **Google Gemini 2.5 Flash**, Custom Deterministic Bilingual Slot Parser |
 | **Transliteration** | Native Hinglish-to-Devanagari phonetic mapping engine |
 | **Backend (Optional Microservice)** | **FastAPI**, **Uvicorn**, **SQLAlchemy**, **ChromaDB**, **Groq Llama 3.1** |
 | **Deployment** | **Vercel** Edge/Serverless Infrastructure |
 
 ---
 
-## 🚀 Getting Started Locally
+## Live Deployment and Local Setup
 
-### Prerequisites
-- **Node.js** 18+ and **npm** installed.
-- Modern browser (Chrome, Edge, Safari, Brave) with microphone permissions enabled.
+### Live Production Deployment
+Experience the live application deployed on Vercel:
+**[https://voca-cart.vercel.app](https://voca-cart.vercel.app)**
 
-### Quick Run
+### Running Locally (Optional)
 
 ```bash
 # 1. Clone the repository
@@ -151,11 +151,11 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to start shopping by voice!
+After starting the dev server, navigate to **[https://voca-cart.vercel.app](https://voca-cart.vercel.app)** or your local instance to start shopping by voice.
 
 ---
 
-## 📂 Repository Structure
+## Repository Structure
 
 ```
 VocaCart/
@@ -185,8 +185,8 @@ VocaCart/
 
 <div align="center">
 
-**Built with ❤️ for frictionless voice-assisted commerce.**
+**Built for frictionless voice-assisted commerce.**
 
-[🚀 Try Live Application](https://voca-cart.vercel.app) • [⭐ Star on GitHub](https://github.com/divyamgoel2005/VocaCart)
+[Try Live Application](https://voca-cart.vercel.app) • [GitHub Repository](https://github.com/divyamgoel2005/VocaCart)
 
 </div>
