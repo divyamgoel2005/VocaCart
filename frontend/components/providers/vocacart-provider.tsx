@@ -163,31 +163,30 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const strings = useMemo(() => getStrings(language), [language])
 
-  // --- Unified Bilingual Indian Voice Persona (Consistent Single Speaker for Hindi & English) ---
-  const getUnifiedIndianVoice = useCallback((): SpeechSynthesisVoice | null => {
+  // --- Primary Native Hindi Voice Persona (Consistent Speaker for Hindi & Fast English) ---
+  const getPrimaryHindiVoice = useCallback((): SpeechSynthesisVoice | null => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
     const voices = window.speechSynthesis.getVoices()
     if (!voices || voices.length === 0) return null
 
-    // 1. First priority: High-quality natural Indian bilingual voices
-    // (Google हिन्दी / Google English (India) / Microsoft Swara Online (Natural) / Microsoft Neerja Online (Natural) / Apple Lekha / Rishi)
-    const primaryIndianVoice = voices.find(
+    // 1. Exact native Hindi voices (Google हिन्दी, Microsoft Swara Natural, Microsoft Madhur, Apple Lekha)
+    const hindiVoice = voices.find(
       (v) =>
         v.lang === 'hi-IN' ||
         v.lang === 'hi_IN' ||
+        /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
+    )
+    if (hindiVoice) return hindiVoice
+
+    // 2. Indian English voice fallback
+    const indianEnVoice = voices.find(
+      (v) =>
         v.lang === 'en-IN' ||
         v.lang === 'en_IN' ||
-        /(\bhi-in\b|\ben-in\b|swara|neerja|madhur|prabhat|kalpana|heera|lekha|rishi|veena|google हिन्दी|google.*india)/i.test(
-          v.name + ' ' + v.lang
-        )
+        /(\ben-in\b|neerja|prabhat|heera|rishi|veena|india|indian)/i.test(v.name + ' ' + v.lang)
     )
-    if (primaryIndianVoice) return primaryIndianVoice
+    if (indianEnVoice) return indianEnVoice
 
-    // 2. Fallback: Any voice with 'hindi' or 'india' in the descriptor
-    const fallbackIndian = voices.find((v) => /hindi|india/i.test(v.name + ' ' + v.lang))
-    if (fallbackIndian) return fallbackIndian
-
-    // 3. Fallback: Natural female/conversational voice
     return voices.find((v) => /natural|female|google|samantha/i.test(v.name)) || voices[0] || null
   }, [])
 
@@ -207,7 +206,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               text
             )
 
-          const voice = getUnifiedIndianVoice()
+          const voice = getPrimaryHindiVoice()
           const isNativeHindiVoice = Boolean(
             voice &&
               (voice.lang === 'hi-IN' ||
@@ -215,30 +214,30 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
                 /hindi|swara|madhur|kalpana|lekha|हिन्दी/i.test(voice.name))
           )
 
-          // If native Hindi voice is chosen and speaking Hindi, format with Devanagari for 100% native diction
+          // Format Hindi text with Devanagari so native Hindi voice pronounces it with 100% native diction
           const textToSpeak = isHindi && isNativeHindiVoice ? formatHindiForTTS(text) : text
 
           const utterance = new SpeechSynthesisUtterance(textToSpeak)
 
           if (voice) {
             utterance.voice = voice
-            utterance.lang = isHindi ? (voice.lang.startsWith('hi') ? voice.lang : 'hi-IN') : 'en-IN'
+            utterance.lang = isHindi ? (voice.lang || 'hi-IN') : 'en-IN'
           } else {
             utterance.lang = isHindi ? 'hi-IN' : 'en-IN'
           }
 
-          // Same brisk, energetic human conversational rate (1.14x) across both Hindi & English!
-          utterance.rate = urgency > 0.65 ? 1.20 : 1.14
+          // Fast, fluent, natural rate: 1.10x for Hindi, 1.18x for English
+          utterance.rate = isHindi ? 1.10 : (urgency > 0.65 ? 1.25 : 1.18)
           utterance.pitch = 1.02
           utterance.volume = 1.0
 
           window.speechSynthesis.speak(utterance)
-        }, 20)
+        }, 15)
       } catch (err) {
         console.warn('Speech synthesis error:', err)
       }
     },
-    [getUnifiedIndianVoice, language]
+    [getPrimaryHindiVoice, language]
   )
 
   // Pre-load voices on mount for prompt TTS
