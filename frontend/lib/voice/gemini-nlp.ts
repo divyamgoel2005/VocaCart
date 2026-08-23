@@ -212,6 +212,19 @@ export async function processVoiceWithGemini(
     }
   }
 
+  // C. Clear All / Empty Cart
+  if (isClearAllCommand(cleanTranscript)) {
+    return {
+      success: true,
+      action: 'CLEAR_ALL',
+      items: [],
+      spoken_text: isHindiMode
+        ? 'Aapki list se saare items hata diye gaye hain.'
+        : 'Cleared all items from your cart.',
+      confidence: 0.98,
+    }
+  }
+
   // C. General Add / Remove parsing
   const localParsed = parseVoiceCommand(cleanTranscript)
   const intent = detectIntent(cleanTranscript)

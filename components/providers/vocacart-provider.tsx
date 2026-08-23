@@ -370,15 +370,21 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
     [pushHistory],
   )
 
-  const clearAllItems = useCallback(async () => {
-    setItems([])
-    setLocalStoredItems([])
-    pushHistory('remove', 'Removed all items from list')
-    speakText('Aapki list se saare items hata diye gaye hain.')
-    try {
-      fetch('/api/list', { method: 'DELETE' }).catch(() => {})
-    } catch {}
-  }, [pushHistory, speakText])
+  const clearAllItems = useCallback(
+    async (isHindi = false) => {
+      setItems([])
+      setLocalStoredItems([])
+      pushHistory('remove', isHindi ? 'Saare items hata diye' : 'Cleared all items from cart')
+      const reply = isHindi
+        ? 'Aapki list se saare items hata diye gaye hain.'
+        : 'Cleared all items from your cart.'
+      speakText(reply)
+      try {
+        fetch('/api/list', { method: 'DELETE' }).catch(() => {})
+      } catch {}
+    },
+    [pushHistory, speakText],
+  )
 
   const changeQuantity = useCallback(
     async (id: string, quantity: number) => {
@@ -473,7 +479,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
         // 2. Task: Remove All Items (Hindi & English)
         if (isClearAllCommand(transcript)) {
-          await clearAllItems()
+          await clearAllItems(isHindiMode)
           setLastResult({ transcript, intent: 'remove', items: [] })
           setVoiceStatus('success')
           return
@@ -573,7 +579,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             const act = backendRes.action || (detected === 'remove' ? 'REMOVE_ITEM' : 'ADD_ITEM')
 
             if (act === 'CLEAR_ALL') {
-              await clearAllItems()
+              await clearAllItems(isHindiMode)
               setLastResult({ transcript, intent: 'remove', items: [] })
               setVoiceStatus('success')
               return

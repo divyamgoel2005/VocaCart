@@ -123,29 +123,42 @@ export function inferNaturalUnit(name: string, userUnit?: string): string {
 export function isClearAllCommand(text: string): boolean {
   const t = text.toLowerCase().trim()
 
-  // If a specific grocery item is mentioned (e.g. "remove all the milk", "remove all apples", "delete all eggs", "saara doodh hata do", "saare tamatar hata do"),
+  // 1. If a specific grocery item is mentioned (e.g. "remove all the milk", "remove all apples", "delete all eggs", "saara doodh hata do", "saare tamatar hata do"),
   // this is a TARGETED item removal, NOT a full cart clear!
-  const hasSpecificGrocery = /\b(milk|doodh|dudh|butter|makhan|cheese|paneer|curd|dahi|tomato|tamatar|potato|aloo|onion|pyaz|apple|seb|banana|kela|bread|atta|salt|namak|tea|chai|coffee|maggi|oil|biscuit|biscuits|oreo|rice|chawal|dal|eggs|anda|ande)\b/i.test(t)
+  const hasSpecificGrocery = /\b(milk|doodh|dudh|butter|makhan|cheese|paneer|curd|dahi|tomato|tamatar|potato|aloo|onion|pyaz|apple|seb|banana|kela|bread|atta|salt|namak|tea|chai|coffee|maggi|oil|biscuit|biscuits|oreo|parle|rice|chawal|dal|eggs|anda|ande|lemon|nimbu|sugar|cheeni)\b/i.test(t)
   if (hasSpecificGrocery) {
     return false
   }
 
-  // 1. English Clear All patterns (strictly matching "all items", "everything", "clear cart", etc.)
-  if (/\b(remove all items|delete all items|clear all items|clear list|clear cart|empty list|empty cart|remove everything|delete everything|clean list|clean cart|reset list|drop all|delete all$|remove all$|clear all$)\b/i.test(t)) {
+  // 2. English Clear / Empty Cart Patterns
+  const englishClearPatterns = [
+    /\b(remove|delete|clear|empty|clean|drop|wipe|reset)\s+(all\s+)?(the\s+)?(cart|list|items?|everything)\b/i,
+    /\b(remove|delete|clear|empty|clean|drop|wipe|reset)\s+(all|everything)\b/i,
+    /\b(empty|clear|clean|reset)\s+(the\s+)?(cart|list)\b/i,
+    /\b(cart|list)\s+(empty|clear|clean)\b/i,
+    /\b(remove|delete)\s+(the\s+)?(cart|list)\b/i,
+    /\bclear\s*all\b/i,
+    /\bempty\s*all\b/i,
+    /\bdelete\s*all\b/i,
+    /\bremove\s*all\b/i,
+    /\bempty\s+the\s+cart\b/i,
+    /\bremove\s+the\s+cart\b/i,
+    /\bclear\s+the\s+cart\b/i,
+  ]
+  if (englishClearPatterns.some((pattern) => pattern.test(t))) {
     return true
   }
 
-  // 2. Hindi / Hinglish Clear All patterns
-  if (/(saare|saara|sabhi|sab|pura|poori|poora)\s+(items?|samaan|saman|list|cart|kuch)\s*(ko)?\s*(hata|nikal|delete|remove|saaf|khali|clear)/i.test(t)) {
-    return true
-  }
-  if (/(list|cart)\s*(ko)?\s*(khali|saaf|empty|clear)\s*(kar|karo|karna|do|kardo)/i.test(t)) {
-    return true
-  }
-  if (/^(sab|sabhi|saare|saara|poora)\s*(kuch)?\s*(hatao|hata do|nikalo|nikal do|delete karo|remove karo|hata do na|khali karo)$/i.test(t)) {
-    return true
-  }
-  if (/(kuch|kuch bhi)\s*mat\s*(rakho|rakhna)/i.test(t)) {
+  // 3. Hindi / Hinglish Clear / Empty Cart Patterns
+  const hindiClearPatterns = [
+    /(saare|saara|sabhi|sab|pura|puri|poori|poora)\s+(items?|samaan|saman|list|cart|kuch)?\s*(ko)?\s*(hata|nikal|delete|remove|saaf|khali|clear)/i,
+    /(list|cart|samaan|saman)\s*(ko)?\s*(khali|saaf|empty|clear)\s*(kar|karo|karna|do|kardo|karein|kar do)/i,
+    /\b(khali|saaf)\s*(kar|karo|kardo|kar do|karein)\b/i,
+    /^(sab|sabhi|saare|saara|poora|pura)\s*(kuch)?\s*(hatao|hata do|hata|nikalo|nikal do|delete karo|delete kar do|remove karo|remove kar do|khali karo|khali kar do)$/i,
+    /(kuch|kuch bhi)\s*mat\s*(rakho|rakhna)/i,
+    /(cart|list)\s*(se)?\s*(sab|saara|saare)\s*(hata|nikal|delete)/i,
+  ]
+  if (hindiClearPatterns.some((pattern) => pattern.test(t))) {
     return true
   }
 
