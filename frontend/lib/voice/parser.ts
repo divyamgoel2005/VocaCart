@@ -69,12 +69,57 @@ export const HINDI_STOP_WORDS = new Set([
   'buy', 'get', 'add', 'me', 'my', 'and', 'also', 'just', 'item', 'items', 'all'
 ])
 
+export function inferNaturalUnit(name: string, userUnit?: string): string {
+  if (userUnit && userUnit !== 'item' && userUnit !== 'items') {
+    const u = userUnit.toLowerCase().trim()
+    if (u === 'kilos' || u === 'kilo' || u === 'kilogram') return 'kg'
+    if (u === 'litres' || u === 'liters' || u === 'liter' || u === 'l') return 'litre'
+    if (u === 'packets' || u === 'packet' || u === 'packs') return 'pack'
+    if (u === 'pieces' || u === 'piece') return 'pcs'
+    if (u === 'bottles') return 'bottle'
+    if (u === 'boxes') return 'box'
+    return u
+  }
+
+  const lower = name.toLowerCase()
+
+  // Fresh produce, vegetables, fruits, flours, grains, sugar, salt
+  if (
+    /(tomato|tamatar|potato|aloo|onion|pyaz|apple|seb|mango|aam|banana|kela|grape|angoor|orange|santra|carrot|gajar|cucumber|kheera|atta|flour|rice|chawal|dal|salt|namak|sugar|cheeni|vegetable|fruit)/i.test(
+      lower
+    )
+  ) {
+    return 'kg'
+  }
+
+  // Liquids (Milk, Oil, Water, Juices, Cleaners)
+  if (/(milk|doodh|dudh|oil|tel|ghee|water|pani|juice|shampoo|cleaner|lizol|harpic|detergent)/i.test(lower)) {
+    return 'litre'
+  }
+
+  // Biscuits, Bread, Noodles, Butter, Cheese, Tea, Coffee, Chips
+  if (
+    /(biscuit|oreo|parle|bourbon|good day|cookie|bread|noodle|maggi|butter|makhan|cheese|paneer|curd|dahi|tea|chai|coffee|chips|namkeen|soap|dettol)/i.test(
+      lower
+    )
+  ) {
+    return 'pack'
+  }
+
+  // Countables
+  if (/(egg|anda|ande|lemon|nimbu|coconut)/i.test(lower)) {
+    return 'pcs'
+  }
+
+  return 'pack'
+}
+
 export function isClearAllCommand(text: string): boolean {
   const t = text.toLowerCase().trim()
 
   // If a specific grocery item is mentioned (e.g. "remove all the milk", "remove all apples", "delete all eggs", "saara doodh hata do", "saare tamatar hata do"),
   // this is a TARGETED item removal, NOT a full cart clear!
-  const hasSpecificGrocery = /\b(milk|doodh|dudh|butter|makhan|cheese|paneer|curd|dahi|tomato|tamatar|potato|aloo|onion|pyaz|apple|seb|banana|kela|bread|atta|salt|namak|tea|chai|coffee|maggi|oil|biscuit|biscuits|rice|chawal|dal|eggs|anda|ande)\b/i.test(t)
+  const hasSpecificGrocery = /\b(milk|doodh|dudh|butter|makhan|cheese|paneer|curd|dahi|tomato|tamatar|potato|aloo|onion|pyaz|apple|seb|banana|kela|bread|atta|salt|namak|tea|chai|coffee|maggi|oil|biscuit|biscuits|oreo|rice|chawal|dal|eggs|anda|ande)\b/i.test(t)
   if (hasSpecificGrocery) {
     return false
   }
@@ -165,7 +210,7 @@ function classify(name: string): Category {
   if (/(atta|rice|wheat|dal|oil|sugar|salt|spice|masala)/i.test(lower)) return 'produce'
   if (/(milk|curd|paneer|butter|cheese|ghee|doodh)/i.test(lower)) return 'dairy'
   if (/(bread|buns|cake|toast|pav)/i.test(lower)) return 'bakery'
-  if (/(maggi|chips|cookie|biscuit|snack|namkeen|kurkure)/i.test(lower)) return 'snacks'
+  if (/(maggi|chips|cookie|biscuit|oreo|snack|namkeen|kurkure)/i.test(lower)) return 'snacks'
   if (/(tea|chai|coffee|juice|water|soda|coke|pepsi)/i.test(lower)) return 'beverages'
   if (/(soap|surf|shampoo|paste|cleaner|detergent|harpic|dettol)/i.test(lower)) return 'household'
   return 'other'
@@ -256,7 +301,8 @@ function parseFragment(fragment: string): ParsedItem | null {
   const name = cleanSpokenItemName(rawName)
   if (!name) return null
 
-  return { name, quantity, unit, category: classify(name) }
+  const finalUnit = inferNaturalUnit(name, unit)
+  return { name, quantity, unit: finalUnit, category: classify(name) }
 }
 
 export function detectIntent(text: string): VoiceIntent {
@@ -290,7 +336,7 @@ function parseSearch(transcript: string): { term: string; filters: SearchFilters
     filters.size = `${sizeMatch[1]} ${sizeMatch[2]}`
   }
 
-  const brands = ['dove', 'colgate', 'himalaya', 'amul', 'tata', 'nestle', 'fortune', 'aashirvaad', 'patanjali', 'britannia', 'lays', 'kurkure']
+  const brands = ['dove', 'colgate', 'himalaya', 'amul', 'tata', 'nestle', 'fortune', 'aashirvaad', 'patanjali', 'britannia', 'lays', 'kurkure', 'oreo']
   for (const b of brands) {
     if (new RegExp(`\\b${b}\\b`).test(working)) {
       filters.brand = b
