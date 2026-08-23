@@ -34,6 +34,7 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
   const Impl = getSpeechRecognition()
   let recognition: any = null
   let hasFinalized = false
+  let lastCapturedText = ''
 
   return {
     start(callbacks) {
@@ -42,6 +43,7 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
         return
       }
       hasFinalized = false
+      lastCapturedText = ''
       recognition = new Impl()
       recognition.lang = lang
       recognition.continuous = false
@@ -56,7 +58,15 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
           if (chunk.isFinal) final += chunk[0].transcript + ' '
           else interim += chunk[0].transcript + ' '
         }
-        if (interim && !hasFinalized) callbacks.onPartial?.(interim.trim())
+
+        const combined = (final + interim).trim()
+        if (combined) {
+          lastCapturedText = combined
+        }
+
+        if (interim && !hasFinalized) {
+          callbacks.onPartial?.(interim.trim())
+        }
         if (final && !hasFinalized) {
           hasFinalized = true
           callbacks.onFinal(final.trim())
@@ -75,10 +85,24 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
           'no-speech': 'no-speech',
           network: 'network',
         }
+
+        // On iOS Safari, if recognition fires no-speech but we captured interim words, finalize it!
+        if (event.error === 'no-speech' && lastCapturedText.trim() && !hasFinalized) {
+          hasFinalized = true
+          callbacks.onFinal(lastCapturedText.trim())
+          return
+        }
+
         callbacks.onError(map[event.error] ?? 'unknown')
       }
 
       recognition.onend = () => {
+        // iOS Safari Fix: On iOS, isFinal is frequently never set to true before onend fires.
+        // If recognition ended and we have captured transcript that was not finalized, finalize it now!
+        if (!hasFinalized && lastCapturedText.trim()) {
+          hasFinalized = true
+          callbacks.onFinal(lastCapturedText.trim())
+        }
         callbacks.onEnd?.()
       }
 
@@ -90,6 +114,10 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
     },
     stop() {
       try {
+        if (!hasFinalized && lastCapturedText.trim()) {
+          hasFinalized = true
+          callbacks.onFinal(lastCapturedText.trim())
+        }
         recognition?.stop()
       } catch {
         /* noop */

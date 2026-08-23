@@ -163,52 +163,76 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const strings = useMemo(() => getStrings(language), [language])
 
-  // --- Primary Natural/Neural Indian Voice Persona ---
+  // --- Primary Natural/Neural Voice Persona ---
   const getPrimaryIndianVoice = useCallback((isHindi: boolean): SpeechSynthesisVoice | null => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
     const voices = window.speechSynthesis.getVoices()
     if (!voices || voices.length === 0) return null
 
-    if (isHindi) {
-      // 1. Natural / Online Hindi voices (Google हिन्दी, Microsoft Swara Online Natural, Microsoft Madhur Online Natural, Apple Lekha)
-      const naturalHindi = voices.find(
-        (v) =>
-          (v.lang === 'hi-IN' || v.lang === 'hi_IN') &&
-          /natural|online|google|enhanced|swara|madhur/i.test(v.name)
-      )
-      if (naturalHindi) return naturalHindi
+    // Strictly filter out non-Hindi / non-English voices (prevents Android Google Español bug)
+    const validVoices = voices.filter(
+      (v) =>
+        !v.lang.startsWith('es') &&
+        !v.lang.startsWith('pt') &&
+        !v.lang.startsWith('fr') &&
+        !v.lang.startsWith('de') &&
+        !v.lang.startsWith('it') &&
+        !v.lang.startsWith('zh') &&
+        !v.lang.startsWith('ja') &&
+        !v.lang.startsWith('ru') &&
+        !/español|spanish|portugu|french|deutsch|italian/i.test(v.name)
+    )
 
-      const anyHindi = voices.find(
+    const pool = validVoices.length > 0 ? validVoices : voices
+
+    if (isHindi) {
+      // 1. Exact Hindi voices (Google हिन्दी, Microsoft Swara, Microsoft Madhur, Apple Lekha, hi-IN)
+      const exactHindi = pool.find(
         (v) =>
-          v.lang === 'hi-IN' ||
-          v.lang === 'hi_IN' ||
-          /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
+          (v.lang === 'hi-IN' || v.lang === 'hi_IN' || v.lang.startsWith('hi')) &&
+          /hindi|हिन्दी|swara|madhur|kalpana|lekha|google/i.test(v.name + ' ' + v.lang)
+      )
+      if (exactHindi) return exactHindi
+
+      const anyHindi = pool.find(
+        (v) =>
+          v.lang.startsWith('hi') ||
+          /(\bhi-in\b|swara|madhur|kalpana|lekha|हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
       )
       if (anyHindi) return anyHindi
 
-      // Fallback to Indian English
-      const indianEn = voices.find((v) => v.lang === 'en-IN' || v.lang === 'en_IN' || /neerja|prabhat|rishi/i.test(v.name))
+      // Fallback to Indian English (strictly en-IN)
+      const indianEn = pool.find(
+        (v) => (v.lang === 'en-IN' || v.lang === 'en_IN' || /neerja|prabhat|rishi|india/i.test(v.name)) && v.lang.startsWith('en')
+      )
       if (indianEn) return indianEn
     } else {
       // English: Female version of the original first speaker (Microsoft Zira, Microsoft Jenny, Google US English, Samantha, Microsoft Aria)
-      const femaleEnglishVoice = voices.find(
+      const femaleEnglishVoice = pool.find(
         (v) =>
           v.lang.startsWith('en') &&
-          /zira|jenny|aria|samantha|female|karen|victoria|google us/i.test(v.name)
+          /zira|jenny|aria|samantha|female|karen|victoria|google us english/i.test(v.name)
       )
       if (femaleEnglishVoice) return femaleEnglishVoice
 
-      const anyFemaleVoice = voices.find(
-        (v) =>
-          /female|zira|samantha|jenny|aria|google us/i.test(v.name)
-      )
-      if (anyFemaleVoice) return anyFemaleVoice
-
-      const standardEnglishVoice = voices.find((v) => v.lang === 'en-US' || v.lang.startsWith('en'))
+      const standardEnglishVoice = pool.find((v) => v.lang === 'en-US' || v.lang.startsWith('en'))
       if (standardEnglishVoice) return standardEnglishVoice
     }
 
-    return voices.find((v) => /natural|online|google|enhanced/i.test(v.name)) || voices[0] || null
+    // Strict Safe Fallback: Only return an English or Hindi voice, NEVER Spanish
+    return pool.find((v) => v.lang.startsWith('en') || v.lang.startsWith('hi')) || pool[0] || null
+  }, [])
+
+  // iOS Safari Audio / TTS Unlock Helper
+  const unlockAudioForIOS = useCallback(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
+    try {
+      window.speechSynthesis.resume()
+      // Create and cancel a silent utterance to unlock the Web Audio/TTS context on iOS Safari
+      const utterance = new SpeechSynthesisUtterance('')
+      utterance.volume = 0
+      window.speechSynthesis.speak(utterance)
+    } catch {}
   }, [])
 
   // --- Single Human-Fluent Bilingual TTS (Text to Speech) Helper ---
@@ -218,6 +242,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
       try {
         window.speechSynthesis.cancel()
+        window.speechSynthesis.resume()
 
         setTimeout(() => {
           const isHindi =
@@ -230,6 +255,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             voice &&
               (voice.lang === 'hi-IN' ||
                 voice.lang === 'hi_IN' ||
+                voice.lang.startsWith('hi') ||
                 /hindi|swara|madhur|kalpana|lekha|हिन्दी/i.test(voice.name))
           )
 
@@ -251,7 +277,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
           utterance.volume = 1.0
 
           window.speechSynthesis.speak(utterance)
-        }, 5)
+        }, 10)
       } catch (err) {
         console.warn('Speech synthesis error:', err)
       }
@@ -697,6 +723,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const beginRecognition = useCallback(
     (forceSimulated: boolean) => {
+      unlockAudioForIOS()
       const activeMode = mode
       setVoiceError(null)
       setPartialTranscript('')
@@ -724,21 +751,23 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
         },
       })
     },
-    [handleFinal, language, mode],
+    [handleFinal, language, mode, unlockAudioForIOS],
   )
 
   const startListening = useCallback(() => {
+    unlockAudioForIOS()
     if (voiceStatus === 'listening') {
       recognizerRef.current?.stop()
       setVoiceStatus('idle')
       return
     }
     beginRecognition(false)
-  }, [beginRecognition, voiceStatus])
+  }, [beginRecognition, unlockAudioForIOS, voiceStatus])
 
   const startSample = useCallback(() => {
+    unlockAudioForIOS()
     beginRecognition(true)
-  }, [beginRecognition])
+  }, [beginRecognition, unlockAudioForIOS])
 
   const stopListening = useCallback(() => {
     recognizerRef.current?.stop()
