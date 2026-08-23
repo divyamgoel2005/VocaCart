@@ -163,31 +163,50 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const strings = useMemo(() => getStrings(language), [language])
 
-  // --- Primary Native Hindi Voice Persona (Consistent Speaker for Hindi & Fast English) ---
-  const getPrimaryHindiVoice = useCallback((): SpeechSynthesisVoice | null => {
+  // --- Primary Natural/Neural Indian Voice Persona ---
+  const getPrimaryIndianVoice = useCallback((isHindi: boolean): SpeechSynthesisVoice | null => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
     const voices = window.speechSynthesis.getVoices()
     if (!voices || voices.length === 0) return null
 
-    // 1. Exact native Hindi voices (Google हिन्दी, Microsoft Swara Natural, Microsoft Madhur, Apple Lekha)
-    const hindiVoice = voices.find(
-      (v) =>
-        v.lang === 'hi-IN' ||
-        v.lang === 'hi_IN' ||
-        /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
-    )
-    if (hindiVoice) return hindiVoice
+    if (isHindi) {
+      // 1. Natural / Online Hindi voices (Google हिन्दी, Microsoft Swara Online Natural, Microsoft Madhur Online Natural, Apple Lekha)
+      const naturalHindi = voices.find(
+        (v) =>
+          (v.lang === 'hi-IN' || v.lang === 'hi_IN') &&
+          /natural|online|google|enhanced|swara|madhur/i.test(v.name)
+      )
+      if (naturalHindi) return naturalHindi
 
-    // 2. Indian English voice fallback
-    const indianEnVoice = voices.find(
-      (v) =>
-        v.lang === 'en-IN' ||
-        v.lang === 'en_IN' ||
-        /(\ben-in\b|neerja|prabhat|heera|rishi|veena|india|indian)/i.test(v.name + ' ' + v.lang)
-    )
-    if (indianEnVoice) return indianEnVoice
+      const anyHindi = voices.find(
+        (v) =>
+          v.lang === 'hi-IN' ||
+          v.lang === 'hi_IN' ||
+          /(\bhi-in\b|swara|madhur|kalpana|lekha|google हिन्दी|hindi)/i.test(v.name + ' ' + v.lang)
+      )
+      if (anyHindi) return anyHindi
 
-    return voices.find((v) => /natural|female|google|samantha/i.test(v.name)) || voices[0] || null
+      // Fallback to Indian English
+      const indianEn = voices.find((v) => v.lang === 'en-IN' || v.lang === 'en_IN' || /neerja|prabhat|rishi/i.test(v.name))
+      if (indianEn) return indianEn
+    } else {
+      // 1. Natural / Online Indian English voices (Microsoft Neerja Online Natural, Google English India, Apple Rishi)
+      const naturalEnIn = voices.find(
+        (v) =>
+          (v.lang === 'en-IN' || v.lang === 'en_IN') &&
+          /natural|online|google|enhanced|neerja|prabhat|heera|rishi/i.test(v.name)
+      )
+      if (naturalEnIn) return naturalEnIn
+
+      const anyEnIn = voices.find((v) => v.lang === 'en-IN' || v.lang === 'en_IN' || /india|indian/i.test(v.name + ' ' + v.lang))
+      if (anyEnIn) return anyEnIn
+
+      // Fallback to Hindi voice
+      const anyHindi = voices.find((v) => v.lang === 'hi-IN' || v.lang === 'hi_IN' || /hindi|swara/i.test(v.name))
+      if (anyHindi) return anyHindi
+    }
+
+    return voices.find((v) => /natural|online|google|enhanced/i.test(v.name)) || voices[0] || null
   }, [])
 
   // --- Single Human-Fluent Bilingual TTS (Text to Speech) Helper ---
@@ -200,13 +219,11 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
         setTimeout(() => {
           const isHindi =
-            language === 'hi' ||
-            language === 'hinglish' ||
-            /(karo|karein|hata|hatao|daal|daalo|chahiye|hai|hain|samaan|kaise|kaun|kya|batao|doodh|tamatar|aalu|pyaz|jod|jod diya|diya gaya|bache|kam kar|aapki|saare|shukriya|alvida|badhiya|mila)/i.test(
+            /(karo|karein|kar|hata|hatao|hatado|daal|daalo|daaldo|chahiye|hai|hain|tha|thi|the|samaan|saman|kaise|kaisi|kaun|kya|batao|bataiye|doodh|dudh|tamatar|aloo|aalu|pyaz|seb|kela|chawal|pani|paani|namak|cheeni|shakkar|tel|mirch|dhaniya|adrak|lahsun|anda|ande|jod|jodo|joddo|kam|aur|poora|saare|saara|sab|sabhi|khali|le|lo|lelo|dedo|nikal|nikalo|bache|rakho|mat|bilkul|badhiya|alvida|shukriya|dhanyawad|namaste)/i.test(
               text
             )
 
-          const voice = getPrimaryHindiVoice()
+          const voice = getPrimaryIndianVoice(isHindi)
           const isNativeHindiVoice = Boolean(
             voice &&
               (voice.lang === 'hi-IN' ||
@@ -226,8 +243,8 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             utterance.lang = isHindi ? 'hi-IN' : 'en-IN'
           }
 
-          // Fast, fluent, natural rate: 1.10x for Hindi, 1.18x for English
-          utterance.rate = isHindi ? 1.10 : (urgency > 0.65 ? 1.25 : 1.18)
+          // Natural human conversational rate (1.12x for Hindi, 1.15x for English)
+          utterance.rate = isHindi ? 1.12 : (urgency > 0.65 ? 1.20 : 1.15)
           utterance.pitch = 1.02
           utterance.volume = 1.0
 
@@ -237,7 +254,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
         console.warn('Speech synthesis error:', err)
       }
     },
-    [getPrimaryHindiVoice, language]
+    [getPrimaryIndianVoice]
   )
 
   // Pre-load voices on mount for prompt TTS
@@ -431,10 +448,15 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
         setVoiceStatus('processing')
         setClarifyingQuestion(null)
 
-        const isHindiMode =
-          language === 'hi' ||
-          language === 'hinglish' ||
-          /(karo|karein|hata|hatao|daal|daalo|chahiye|hai|hain|samaan|kaise|kaun|kya|batao)/i.test(transcript)
+        // Strict Dynamic Language Detection: Respond in the exact language the user spoke
+        const isHindiSpeech = /\b(karo|karein|kar|hata|hatao|hatado|daal|daalo|daaldo|chahiye|hai|hain|tha|thi|the|samaan|saman|kaise|kaisi|kaun|kya|batao|bataiye|doodh|dudh|tamatar|aloo|aalu|pyaz|seb|kela|chawal|pani|paani|namak|cheeni|shakkar|tel|mirch|dhaniya|adrak|lahsun|anda|ande|jod|jodo|joddo|kam|aur|poora|saare|saara|sab|sabhi|khali|le|lo|lelo|dedo|nikal|nikalo|bache|rakho|mat|bilkul|badhiya|alvida|shukriya|dhanyawad|namaste|dhoondo|dikhao)\b/i.test(
+          transcript
+        )
+        const isEnglishSpeech = /\b(add|remove|delete|clear|empty|list|cart|show|find|search|how|what|who|why|where|can|please|thank|total|bill|cost|price|undo|mark|check)\b/i.test(
+          transcript
+        )
+
+        const isHindiMode = isHindiSpeech || (language === 'hi' && !isEnglishSpeech)
 
         // 1. General Chit-Chat & Questions ("How are you?", "Who are you?", "What can you do?", "Tell me a joke")
         const conv = checkConversationalQuery(transcript)
@@ -520,7 +542,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             const spoken = isHindiMode ? `${existing.name} tick kar diya hai.` : `Marked ${existing.name} as done.`
             speakText(spoken)
           } else {
-            speakText(`Could not find ${checkOff.itemName} in list`)
+            speakText(isHindiMode ? `${checkOff.itemName} list mein nahi mila.` : `Could not find ${checkOff.itemName} in list.`)
           }
           setLastResult({ transcript, intent: 'update', items: [] })
           setVoiceStatus('success')
@@ -534,7 +556,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
           runSearch(query, localParsed.filters ?? {})
           setLastResult(localParsed)
           setVoiceStatus('success')
-          speakText(`Showing results for ${query}`)
+          speakText(isHindiMode ? `${query} ke results dikha raha hoon.` : `Showing results for ${query}.`)
           return
         }
 
@@ -589,7 +611,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
                   const spoken = isHindiMode
                     ? `${existing.name} list se hata diya gaya hai.`
                     : `Removed ${existing.name} from your list.`
-                  speakText(backendRes.spoken_text || spoken)
+                  speakText(spoken)
                   pushHistory('remove', spoken)
                 }
               } else {
@@ -619,11 +641,16 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               }, false) // Suppress duplicate speech
             }
 
-            // Speak confirmation once
-            if (backendRes.spoken_text) {
-              speakText(backendRes.spoken_text, backendRes.urgency_score)
-            }
-            pushHistory('add', backendRes.spoken_text || `Added items`)
+            const itemDescriptions = itemsToAdd
+              .map((i) => `${i.quantity} ${i.unit !== 'item' ? i.unit + ' ' : ''}${i.product_name}`)
+              .join(', ')
+
+            const replyText = isHindiMode
+              ? `${itemDescriptions} aapki shopping list mein jod diya hai.`
+              : `Added ${itemDescriptions} to your cart.`
+
+            speakText(replyText, backendRes.urgency_score)
+            pushHistory('add', replyText)
 
             setLastResult({
               transcript,
@@ -665,12 +692,14 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
                   pushHistory('update', spoken)
                 } else {
                   await removeItem(existing.id)
-                  const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
+                  const spoken = isHindiMode
+                    ? `${existing.name} list se hata diya gaya hai.`
+                    : `Removed ${existing.name} from your list.`
                   speakText(spoken)
                   pushHistory('remove', spoken)
                 }
               } else {
-                speakText(`Could not find ${itemNameToUse} in list`)
+                speakText(isHindiMode ? `${itemNameToUse} list mein nahi mila.` : `Could not find ${itemNameToUse} in list.`)
               }
             } else {
               const qty = localParsed.items[0]?.quantity || 1
@@ -710,7 +739,9 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
                 pushHistory('update', spoken)
               } else {
                 await removeItem(existing.id)
-                const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
+                const spoken = isHindiMode
+                  ? `${existing.name} list se hata diya gaya hai.`
+                  : `Removed ${existing.name} from your list.`
                 speakText(spoken)
                 pushHistory('remove', `Removed ${existing.name}`)
               }
