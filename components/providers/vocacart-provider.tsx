@@ -190,20 +190,22 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
       const indianEn = voices.find((v) => v.lang === 'en-IN' || v.lang === 'en_IN' || /neerja|prabhat|rishi/i.test(v.name))
       if (indianEn) return indianEn
     } else {
-      // 1. Natural / Online Indian English voices (Microsoft Neerja Online Natural, Google English India, Apple Rishi)
-      const naturalEnIn = voices.find(
+      // English: Female version of the original first speaker (Microsoft Zira, Microsoft Jenny, Google US English, Samantha, Microsoft Aria)
+      const femaleEnglishVoice = voices.find(
         (v) =>
-          (v.lang === 'en-IN' || v.lang === 'en_IN') &&
-          /natural|online|google|enhanced|neerja|prabhat|heera|rishi/i.test(v.name)
+          v.lang.startsWith('en') &&
+          /zira|jenny|aria|samantha|female|karen|victoria|google us/i.test(v.name)
       )
-      if (naturalEnIn) return naturalEnIn
+      if (femaleEnglishVoice) return femaleEnglishVoice
 
-      const anyEnIn = voices.find((v) => v.lang === 'en-IN' || v.lang === 'en_IN' || /india|indian/i.test(v.name + ' ' + v.lang))
-      if (anyEnIn) return anyEnIn
+      const anyFemaleVoice = voices.find(
+        (v) =>
+          /female|zira|samantha|jenny|aria|google us/i.test(v.name)
+      )
+      if (anyFemaleVoice) return anyFemaleVoice
 
-      // Fallback to Hindi voice
-      const anyHindi = voices.find((v) => v.lang === 'hi-IN' || v.lang === 'hi_IN' || /hindi|swara/i.test(v.name))
-      if (anyHindi) return anyHindi
+      const standardEnglishVoice = voices.find((v) => v.lang === 'en-US' || v.lang.startsWith('en'))
+      if (standardEnglishVoice) return standardEnglishVoice
     }
 
     return voices.find((v) => /natural|online|google|enhanced/i.test(v.name)) || voices[0] || null
@@ -238,14 +240,14 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
           if (voice) {
             utterance.voice = voice
-            utterance.lang = isHindi ? (voice.lang || 'hi-IN') : 'en-IN'
+            utterance.lang = isHindi ? (voice.lang || 'hi-IN') : (voice.lang || 'en-US')
           } else {
-            utterance.lang = isHindi ? 'hi-IN' : 'en-IN'
+            utterance.lang = isHindi ? 'hi-IN' : 'en-US'
           }
 
-          // Natural human conversational rate (1.12x for Hindi, 1.15x for English)
-          utterance.rate = isHindi ? 1.12 : (urgency > 0.65 ? 1.20 : 1.15)
-          utterance.pitch = 1.02
+          // Optimal conversational rate: 1.12x for Hindi, 1.08x for English
+          utterance.rate = isHindi ? 1.12 : (urgency > 0.65 ? 1.16 : 1.08)
+          utterance.pitch = 1.0
           utterance.volume = 1.0
 
           window.speechSynthesis.speak(utterance)
