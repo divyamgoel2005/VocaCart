@@ -91,7 +91,8 @@ Rules:
 1. Exact Brand Preservation: If the user explicitly mentions a brand (e.g. 'Oreo biscuit', 'Bourbon', 'Mother Dairy milk', 'Lays chips', 'Good Day', 'Patanjali'), preserve that exact brand!
 2. Default Brand Rule: If the user says a generic packaged product without a brand (e.g. 'milk' -> Amul Milk, 'salt' -> Tata Salt, 'atta' -> Aashirvaad Atta), attach the standard company name.
 3. Partial Quantity Removal: If the user says 'delete 5 packets of milk' or '5 tamatar hata do', action is REMOVE_ITEM with quantity: 5.
-4. Units: Assign natural grocery units like 'kg' for produce/staples, 'litre' or 'ml' for liquids/milk, 'pack' for biscuits/noodles/bread, 'pcs' for eggs/lemons.`
+4. Units: Assign natural grocery units like 'kg' for produce/staples, 'litre' or 'ml' for liquids/milk, 'pack' for biscuits/noodles/bread, 'pcs' for eggs/lemons.
+5. CLEAR_ALL: If user says 'cart empty', 'empty cart', 'clear cart', 'cart khali karo', 'saara samaan hata do', 'sab hata do', 'list khali kar do', set action to 'CLEAR_ALL'.`
 
 function attachBrandIfPackaged(itemName: string): string {
   const lower = itemName.toLowerCase().trim()
