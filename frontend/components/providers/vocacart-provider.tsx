@@ -491,16 +491,42 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (act.includes('REMOVE')) {
-              const itemToRemove = backendRes.item?.product_name || backendRes.raw_item_name || transcript
+              const itemToRemove =
+                backendRes.items?.[0]?.product_name ||
+                backendRes.item?.product_name ||
+                backendRes.raw_item_name ||
+                localParsed.items[0]?.name ||
+                transcript
               const cleanTarget = cleanSpokenItemName(itemToRemove) || itemToRemove
-              const existing = items.find(
-                (i) => areItemsEquivalent(i.name, cleanTarget)
-              )
+              const specifiedQty =
+                backendRes.items?.[0]?.quantity ||
+                backendRes.item?.quantity ||
+                localParsed.items[0]?.quantity ||
+                0
+              const isPartialRemoval =
+                specifiedQty > 0 &&
+                !/(all|saare|saara|sab|pura|complete|everything)/i.test(transcript)
+
+              const existing = items.find((i) => areItemsEquivalent(i.name, cleanTarget))
+
               if (existing) {
-                await removeItem(existing.id)
-                const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
-                speakText(backendRes.spoken_text || spoken)
-                pushHistory('remove', spoken)
+                if (isPartialRemoval && existing.quantity > specifiedQty) {
+                  const newQty = existing.quantity - specifiedQty
+                  await changeQuantity(existing.id, newQty)
+                  const unitLabel = existing.unit && existing.unit !== 'item' ? ` ${existing.unit}` : ''
+                  const spoken = isHindiMode
+                    ? `${existing.name} ke ${specifiedQty}${unitLabel} kam kar diye. Ab ${newQty}${unitLabel} bache hain.`
+                    : `Removed ${specifiedQty}${unitLabel} of ${existing.name}. ${newQty}${unitLabel} remaining in your cart.`
+                  speakText(spoken)
+                  pushHistory('update', spoken)
+                } else {
+                  await removeItem(existing.id)
+                  const spoken = isHindiMode
+                    ? `${existing.name} list se hata diya gaya hai.`
+                    : `Removed ${existing.name} from your list.`
+                  speakText(backendRes.spoken_text || spoken)
+                  pushHistory('remove', spoken)
+                }
               } else {
                 speakText(isHindiMode ? `${cleanTarget} list mein nahi mila.` : `Could not find ${cleanTarget} in list.`)
               }
@@ -555,14 +581,29 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               localParsed.items[0]?.name ||
               transcript.trim()
             const itemNameToUse = cleanSpokenItemName(rawCandidate) || rawCandidate
+            const specifiedQty = localParsed.items[0]?.quantity || 0
+            const isPartialRemoval =
+              specifiedQty > 0 &&
+              !/(all|saare|saara|sab|pura|complete|everything)/i.test(transcript)
 
             if (detected === 'remove') {
               const existing = items.find(i => areItemsEquivalent(i.name, itemNameToUse))
               if (existing) {
-                await removeItem(existing.id)
-                const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
-                speakText(spoken)
-                pushHistory('remove', spoken)
+                if (isPartialRemoval && existing.quantity > specifiedQty) {
+                  const newQty = existing.quantity - specifiedQty
+                  await changeQuantity(existing.id, newQty)
+                  const unitLabel = existing.unit && existing.unit !== 'item' ? ` ${existing.unit}` : ''
+                  const spoken = isHindiMode
+                    ? `${existing.name} ke ${specifiedQty}${unitLabel} kam kar diye. Ab ${newQty}${unitLabel} bache hain.`
+                    : `Removed ${specifiedQty}${unitLabel} of ${existing.name}. ${newQty}${unitLabel} remaining.`
+                  speakText(spoken)
+                  pushHistory('update', spoken)
+                } else {
+                  await removeItem(existing.id)
+                  const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
+                  speakText(spoken)
+                  pushHistory('remove', spoken)
+                }
               } else {
                 speakText(`Could not find ${itemNameToUse} in list`)
               }
@@ -586,12 +627,28 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
           if (detected === 'remove') {
             const targetName = cleanSpokenItemName(localParsed.items[0]?.name || transcript.trim())
+            const specifiedQty = localParsed.items[0]?.quantity || 0
+            const isPartialRemoval =
+              specifiedQty > 0 &&
+              !/(all|saare|saara|sab|pura|complete|everything)/i.test(transcript)
+
             const existing = items.find(i => areItemsEquivalent(i.name, targetName))
             if (existing) {
-              await removeItem(existing.id)
-              const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
-              speakText(spoken)
-              pushHistory('remove', `Removed ${existing.name}`)
+              if (isPartialRemoval && existing.quantity > specifiedQty) {
+                const newQty = existing.quantity - specifiedQty
+                await changeQuantity(existing.id, newQty)
+                const unitLabel = existing.unit && existing.unit !== 'item' ? ` ${existing.unit}` : ''
+                const spoken = isHindiMode
+                  ? `${existing.name} ke ${specifiedQty}${unitLabel} kam kar diye. Ab ${newQty}${unitLabel} bache hain.`
+                  : `Removed ${specifiedQty}${unitLabel} of ${existing.name}. ${newQty}${unitLabel} remaining.`
+                speakText(spoken)
+                pushHistory('update', spoken)
+              } else {
+                await removeItem(existing.id)
+                const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
+                speakText(spoken)
+                pushHistory('remove', `Removed ${existing.name}`)
+              }
             }
           } else if (localParsed.items.length > 0) {
             for (const item of localParsed.items) {

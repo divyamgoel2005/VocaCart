@@ -90,9 +90,8 @@ Return JSON adhering to this exact schema:
 Rules:
 1. Exact Brand Preservation: If the user explicitly mentions a brand (e.g. 'Oreo biscuit', 'Bourbon', 'Mother Dairy milk', 'Lays chips', 'Good Day', 'Patanjali'), preserve that exact brand!
 2. Default Brand Rule: If the user says a generic packaged product without a brand (e.g. 'milk' -> Amul Milk, 'salt' -> Tata Salt, 'atta' -> Aashirvaad Atta), attach the standard company name.
-3. Fresh Produce: Fruits and vegetables (Tomato, Potato, Apple, Onion, Banana, etc.) have NO brand name.
-4. Units: Assign natural grocery units like 'kg' for produce/staples, 'litre' or 'ml' for liquids/milk, 'pack' for biscuits/noodles/bread, 'pcs' for eggs/lemons.
-5. If the user says 'remove all [item]' (e.g. 'remove all milk'), action is REMOVE_ITEM for that item, NOT CLEAR_ALL.`
+3. Partial Quantity Removal: If the user says 'delete 5 packets of milk' or '5 tamatar hata do', action is REMOVE_ITEM with quantity: 5.
+4. Units: Assign natural grocery units like 'kg' for produce/staples, 'litre' or 'ml' for liquids/milk, 'pack' for biscuits/noodles/bread, 'pcs' for eggs/lemons.`
 
 function attachBrandIfPackaged(itemName: string): string {
   const lower = itemName.toLowerCase().trim()
@@ -103,13 +102,12 @@ function attachBrandIfPackaged(itemName: string): string {
   }
 
   // 2. Check if a brand is already explicitly mentioned by the user
-  // (e.g. Oreo, Bourbon, Hide & Seek, Good Day, Parle, Britannia, Sunfeast, Mother Dairy, Nestle, Lays, Cadbury, etc.)
   if (
     /(oreo|bourbon|hide & seek|good day|marie|monaco|krackjack|parle|britannia|sunfeast|amul|mother dairy|safal|nestle|tata|fortune|aashirvaad|maggi|knorr|top ramen|yippee|lays|kurkure|bingo|haldiram|bikaji|balaji|cadbury|dairy milk|kitkat|snickers|lipton|taj mahal|red label|wagh bakri|society|nescafe|bru|colgate|pepsodent|sensodyne|close up|dettol|lifebuoy|dove|pears|lux|surf|ariel|tide|vim|pril|harpic|lizol|dabar|patanjali|everest|mdh|catch|saffola|dhara|gemini)/i.test(
       lower
     )
   ) {
-    return itemName // Keep exact user specified brand!
+    return itemName
   }
 
   // 3. Fallback to default brand ONLY if user gave a generic packaged product
@@ -222,18 +220,23 @@ export async function processVoiceWithGemini(
     const rawName = localParsed.items[0]?.name || cleanTranscript
     const cleanName = cleanSpokenItemName(rawName) || rawName
     const brandedName = attachBrandIfPackaged(cleanName)
+    const removeQty = localParsed.items[0]?.quantity || 1
+    const unitToUse = inferNaturalUnit(brandedName, localParsed.items[0]?.unit)
+
     return {
       success: true,
       action: 'REMOVE_ITEM',
       items: [
         {
           product_name: brandedName,
-          quantity: 1,
-          unit: 'item',
+          quantity: removeQty,
+          unit: unitToUse,
           category: 'other',
         },
       ],
-      spoken_text: isHindiMode ? `${brandedName} hata diya gaya hai.` : `Removed ${brandedName} from your list.`,
+      spoken_text: isHindiMode
+        ? `${removeQty > 1 ? removeQty + ' ' : ''}${brandedName} hata diya gaya hai.`
+        : `Removed ${removeQty > 1 ? removeQty + ' ' : ''}${brandedName} from your list.`,
       confidence: 0.9,
     }
   }
