@@ -35,6 +35,15 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
   let recognition: any = null
   let hasFinalized = false
   let lastCapturedText = ''
+  let silenceTimer: ReturnType<typeof setTimeout> | null = null
+
+  // On iOS Safari / WebKit, prefer en-IN for Indian English & bilingual speech
+  const isIOS =
+    typeof navigator !== 'undefined' &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+
+  const targetLang = isIOS && lang === 'en-US' ? 'en-IN' : lang
 
   return {
     start(callbacks) {
@@ -45,10 +54,23 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
       hasFinalized = false
       lastCapturedText = ''
       recognition = new Impl()
-      recognition.lang = lang
-      recognition.continuous = false
+      recognition.lang = targetLang
+      // iOS WebKit benefits from continuous mode with debounce to avoid premature cut-off mid-sentence
+      recognition.continuous = Boolean(isIOS)
       recognition.interimResults = true
       recognition.maxAlternatives = 1
+
+      const finalizeText = (text: string) => {
+        if (hasFinalized) return
+        hasFinalized = true
+        if (silenceTimer) clearTimeout(silenceTimer)
+        callbacks.onFinal(text.trim())
+        try {
+          recognition?.stop()
+        } catch {
+          /* noop */
+        }
+      }
 
       recognition.onresult = (event: any) => {
         let interim = ''
@@ -62,19 +84,19 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
         const combined = (final + interim).trim()
         if (combined) {
           lastCapturedText = combined
+          callbacks.onPartial?.(combined)
+
+          // Adaptive silence debounce on iOS to avoid cutting off mid-sentence
+          if (isIOS) {
+            if (silenceTimer) clearTimeout(silenceTimer)
+            silenceTimer = setTimeout(() => {
+              finalizeText(lastCapturedText)
+            }, 1200)
+          }
         }
 
-        if (interim && !hasFinalized) {
-          callbacks.onPartial?.(interim.trim())
-        }
-        if (final && !hasFinalized) {
-          hasFinalized = true
-          callbacks.onFinal(final.trim())
-          try {
-            recognition?.stop()
-          } catch {
-            /* noop */
-          }
+        if (final && !isIOS && !hasFinalized) {
+          finalizeText(final)
         }
       }
 
@@ -88,8 +110,7 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
 
         // On iOS Safari, if recognition fires no-speech but we captured interim words, finalize it!
         if (event.error === 'no-speech' && lastCapturedText.trim() && !hasFinalized) {
-          hasFinalized = true
-          callbacks.onFinal(lastCapturedText.trim())
+          finalizeText(lastCapturedText)
           return
         }
 
@@ -97,11 +118,9 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
       }
 
       recognition.onend = () => {
-        // iOS Safari Fix: On iOS, isFinal is frequently never set to true before onend fires.
-        // If recognition ended and we have captured transcript that was not finalized, finalize it now!
+        // iOS Safari Fix: On iOS, finalize transcript on end
         if (!hasFinalized && lastCapturedText.trim()) {
-          hasFinalized = true
-          callbacks.onFinal(lastCapturedText.trim())
+          finalizeText(lastCapturedText)
         }
         callbacks.onEnd?.()
       }
@@ -114,9 +133,10 @@ export function createSpeechRecognizer(lang = 'en-US'): Recognizer {
     },
     stop() {
       try {
+        if (silenceTimer) clearTimeout(silenceTimer)
         if (!hasFinalized && lastCapturedText.trim()) {
           hasFinalized = true
-          callbacks.onFinal(lastCapturedText.trim())
+          callbacks?.onFinal?.(lastCapturedText.trim())
         }
         recognition?.stop()
       } catch {
