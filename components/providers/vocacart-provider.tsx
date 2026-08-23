@@ -52,6 +52,7 @@ import {
 import { areItemsEquivalent } from '@/lib/voice/bilingual-mapping'
 import { matchRecipeBundle } from '@/lib/voice/recipes'
 import { checkConversationalQuery } from '@/lib/voice/conversational-responses'
+import { formatHindiForTTS } from '@/lib/voice/transliterate'
 import {
   createSimulatedRecognizer,
   createSpeechRecognizer,
@@ -209,10 +210,10 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
     if (hindiVoice) return hindiVoice
 
     // Generic natural/female voice fallback
-    return voices.find((v) => /natural|female/i.test(v.name)) || voices[0] || null
+    return voices.find((v) => /natural|female|google|samantha/i.test(v.name)) || voices[0] || null
   }, [])
 
-  // --- Single Indian TTS (Text to Speech) Helper ---
+  // --- Single Human-Fluent Indian TTS (Text to Speech) Helper ---
   const speakText = useCallback(
     (text?: string, urgency = 0.2) => {
       if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) return
@@ -224,12 +225,22 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
           const isHindi =
             language === 'hi' ||
             language === 'hinglish' ||
-            /(karo|karein|hata|hatao|daal|daalo|chahiye|hai|hain|samaan|kaise|kaun|kya|batao|doodh|tamatar|aalu|pyaz|jod|jod diya|diya gaya|bache|kam kar|aapki)/i.test(
+            /(karo|karein|hata|hatao|daal|daalo|chahiye|hai|hain|samaan|kaise|kaun|kya|batao|doodh|tamatar|aalu|pyaz|jod|jod diya|diya gaya|bache|kam kar|aapki|saare|shukriya|alvida|badhiya)/i.test(
               text
             )
 
-          const utterance = new SpeechSynthesisUtterance(text)
           const voice = getBestIndianVoice(isHindi)
+          const isNativeHindiVoice = Boolean(
+            voice &&
+              (voice.lang === 'hi-IN' ||
+                voice.lang === 'hi_IN' ||
+                /hindi|swara|madhur|kalpana|lekha|हिन्दी/i.test(voice.name))
+          )
+
+          // If native Hindi voice is chosen, translate words to Devanagari so pronunciation is 100% natural and native
+          const textToSpeak = isHindi && isNativeHindiVoice ? formatHindiForTTS(text) : text
+
+          const utterance = new SpeechSynthesisUtterance(textToSpeak)
 
           if (voice) {
             utterance.voice = voice
@@ -238,12 +249,13 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             utterance.lang = isHindi ? 'hi-IN' : 'en-IN'
           }
 
-          utterance.rate = urgency > 0.65 ? 1.05 : 0.95 // Optimal natural cadence for Indian English/Hindi
-          utterance.pitch = 1.0
+          // Fluent, lively human conversational rate (1.08x - 1.15x)
+          utterance.rate = urgency > 0.65 ? 1.16 : 1.10
+          utterance.pitch = 1.02
           utterance.volume = 1.0
 
           window.speechSynthesis.speak(utterance)
-        }, 50)
+        }, 20)
       } catch (err) {
         console.warn('Speech synthesis error:', err)
       }
