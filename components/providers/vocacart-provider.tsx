@@ -93,7 +93,7 @@ interface VocaCartValue {
   clearAllItems: () => Promise<void>
   changeQuantity: (id: string, quantity: number) => void
   toggleComplete: (id: string) => void
-  addParsedItem: (item: ParsedItem) => void
+  addParsedItem: (item: ParsedItem, shouldSpeak?: boolean) => void
   addSuggestion: (s: Suggestion) => void
   undo: () => void
 
@@ -162,7 +162,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   const strings = useMemo(() => getStrings(language), [language])
 
-  // --- TTS (Text to Speech) Helper ---
+  // --- Single TTS (Text to Speech) Helper ---
   const speakText = useCallback((text?: string, urgency = 0.2) => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window) || !text) return
     try {
@@ -172,7 +172,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
         utterance.rate = urgency > 0.65 ? 1.15 : 1.0
         utterance.pitch = 1.0
         window.speechSynthesis.speak(utterance)
-      }, 60)
+      }, 50)
     } catch (err) {
       console.warn('Speech synthesis error:', err)
     }
@@ -220,7 +220,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
 
   // --- list mutations with Persistent State ---
   const addParsedItem = useCallback(
-    async (parsed: ParsedItem) => {
+    async (parsed: ParsedItem, shouldSpeak = true) => {
       const cleanName = cleanSpokenItemName(parsed.name) || parsed.name
 
       setItems((prev) => {
@@ -230,7 +230,9 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
           const newQty = updated[existingIndex].quantity + parsed.quantity
           updated[existingIndex] = { ...updated[existingIndex], quantity: newQty }
           pushHistory('update', `Updated ${updated[existingIndex].name} to ${newQty} ${parsed.unit || 'items'}`)
-          speakText(`Added ${parsed.quantity} more ${cleanName}. Total is now ${newQty}.`)
+          if (shouldSpeak) {
+            speakText(`Added ${parsed.quantity} more ${cleanName}. Total is now ${newQty}.`)
+          }
           return updated
         } else {
           const newItem: ShoppingItem = {
@@ -242,7 +244,9 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             completed: false,
           }
           pushHistory('add', `Added ${parsed.quantity} × ${cleanName}`)
-          speakText(`Added ${parsed.quantity} ${cleanName}`)
+          if (shouldSpeak) {
+            speakText(`Added ${parsed.quantity} ${cleanName}`)
+          }
           return [newItem, ...prev]
         }
       })
@@ -264,7 +268,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
         name: s.itemName,
         quantity: s.quantity ?? 1,
         category: s.category,
-      })
+      }, true)
       setSuggestions((prev) => prev.filter((x) => x.id !== s.id))
     },
     [addParsedItem],
@@ -433,7 +437,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
         const matchedBundle = matchRecipeBundle(transcript)
         if (matchedBundle) {
           for (const bundleItem of matchedBundle.items) {
-            await addParsedItem(bundleItem)
+            await addParsedItem(bundleItem, false)
           }
           const spoken = isHindiMode ? matchedBundle.spokenHindi : matchedBundle.spokenEnglish
           speakText(spoken)
@@ -490,10 +494,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               const itemToRemove = backendRes.item?.product_name || backendRes.raw_item_name || transcript
               const cleanTarget = cleanSpokenItemName(itemToRemove) || itemToRemove
               const existing = items.find(
-                (i) =>
-                  areItemsEquivalent(i.name, cleanTarget) ||
-                  i.name.toLowerCase().includes(cleanTarget.toLowerCase()) ||
-                  cleanTarget.toLowerCase().includes(i.name.toLowerCase())
+                (i) => areItemsEquivalent(i.name, cleanTarget)
               )
               if (existing) {
                 await removeItem(existing.id)
@@ -524,9 +525,10 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
                 quantity: Math.max(1, Math.round(itm.quantity || 1)),
                 unit: itm.unit,
                 category: mapToCategory(itm.category),
-              })
+              }, false) // Suppress duplicate speech
             }
 
+            // Speak confirmation once
             if (backendRes.spoken_text) {
               speakText(backendRes.spoken_text, backendRes.urgency_score)
             }
@@ -574,7 +576,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
                 quantity: qty,
                 unit: unit,
                 category: cat,
-              })
+              }, true)
             }
 
             setVoiceStatus('success')
@@ -593,7 +595,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             }
           } else if (localParsed.items.length > 0) {
             for (const item of localParsed.items) {
-              await addParsedItem(item)
+              await addParsedItem(item, true)
             }
           } else if (transcript.trim()) {
             const cleanItem = cleanSpokenItemName(transcript.trim()) || transcript.trim()
@@ -601,7 +603,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               name: cleanItem,
               quantity: 1,
               category: 'other',
-            })
+            }, true)
           }
           setLastResult(localParsed)
           setVoiceStatus('success')
