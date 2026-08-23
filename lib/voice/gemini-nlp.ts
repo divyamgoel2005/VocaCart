@@ -31,6 +31,43 @@ export interface ParsedVoiceResult {
   urgency_score?: number
 }
 
+// Brand associations for common packaged groceries
+const BRAND_ASSOCIATIONS: Record<string, string> = {
+  milk: 'Amul Milk',
+  doodh: 'Amul Milk',
+  dudh: 'Amul Milk',
+  butter: 'Amul Butter',
+  makhan: 'Amul Butter',
+  cheese: 'Amul Cheese',
+  paneer: 'Amul Paneer',
+  curd: 'Mother Dairy Curd',
+  dahi: 'Mother Dairy Curd',
+  atta: 'Aashirvaad Atta',
+  flour: 'Aashirvaad Atta',
+  salt: 'Tata Salt',
+  namak: 'Tata Salt',
+  tea: 'Tata Tea',
+  chai: 'Tata Tea',
+  coffee: 'Nescafe Coffee',
+  bread: 'Britannia Bread',
+  biscuit: 'Parle-G Biscuits',
+  biscuits: 'Parle-G Biscuits',
+  noodles: 'Maggi Noodles',
+  maggi: 'Maggi Noodles',
+  oil: 'Fortune Oil',
+  tel: 'Fortune Oil',
+  toothpaste: 'Colgate Toothpaste',
+  soap: 'Dettol Soap',
+  detergent: 'Surf Excel Detergent',
+}
+
+const PRODUCE_KEYWORDS = new Set([
+  'tomato', 'tamatar', 'potato', 'aloo', 'aalu', 'onion', 'pyaz', 'apple', 'seb',
+  'banana', 'kela', 'orange', 'santra', 'grapes', 'angoor', 'mango', 'aam',
+  'ginger', 'adrak', 'garlic', 'lehsun', 'chilli', 'mirchi', 'lemon', 'nimbu',
+  'cucumber', 'kheera', 'carrot', 'gajar', 'coriander', 'dhaniya', 'spinach', 'palak',
+])
+
 const SYSTEM_PROMPT = `You are VocaCart AI, an expert bilingual (Hindi, Hinglish, English) voice grocery assistant.
 Analyze the user's voice command and extract structured grocery actions.
 
@@ -39,22 +76,45 @@ Return JSON adhering to this exact schema:
   "action": "ADD_ITEM" | "REMOVE_ITEM" | "CLEAR_ALL" | "READ_LIST" | "TOTAL_BILL" | "CHECK_OFF" | "RECIPE_BUNDLE" | "GENERAL_CHAT" | "SEARCH",
   "items": [
     {
-      "product_name": "Standard English/Hindi grocery name (e.g. Fresh Milk, Tomato, Maggi)",
+      "product_name": "Product name with Company/Brand if applicable (e.g. Amul Milk, Tata Salt, Maggi Noodles, Britannia Bread) or pure generic name for fresh produce/fruits/vegetables (e.g. Tomato, Potato, Apple, Onion)",
+      "brand": "Company/Brand name if applicable (e.g. Amul, Tata, Fortune, Britannia, Nestle) or empty string for fresh fruits/vegetables",
       "quantity": number (default 1),
       "unit": "packet" | "kg" | "g" | "litre" | "bottle" | "box" | "piece" | "item",
       "category": "produce" | "dairy" | "bakery" | "snacks" | "beverages" | "household" | "other"
     }
   ],
-  "spoken_text": "A friendly, concise voice reply in the user's spoken language (Hindi/Hinglish or English).",
+  "spoken_text": "A friendly voice reply in the user's spoken language mentioning company/brand for packaged items and generic name for fruits/veggies.",
   "confidence": 0.95
 }
 
 Rules:
-1. Pure produce items (Apple/Seb, Orange/Santra, Tomato/Tamatar) should NOT match processed items like Apple Juice or Tomato Sauce unless specifically requested.
-2. Hindi numbers (ek=1, do=2, aadha=0.5, teen=3, char=4, paanch=5) must be mapped to numbers.
-3. If the user asks a general question ("how are you", "who are you", "recipe suggestions"), set action to "GENERAL_CHAT" and answer conversationally.
-4. If the user says "remove all", "saare items hata do", or "clear list", action is "CLEAR_ALL".
-5. Keep spoken_text crisp and natural for voice synthesis (TTS).`
+1. Brand/Company Name Rule: If the item is a packaged product (e.g., Milk -> Amul Milk, Salt -> Tata Salt, Bread -> Britannia Bread, Noodles -> Maggi Noodles, Atta -> Aashirvaad Atta), include the company name in product_name and spoken_text. For fresh fruits and vegetables (Tomato, Potato, Apple, Onion, Banana, etc.), do NOT include any company name.
+2. Produce vs Derivative: Raw fruits/vegetables should NOT match processed derivatives (like Apple Juice or Tomato Sauce) unless explicitly requested.
+3. Hindi Numbers: ek=1, do=2, teen=3, char=4, paanch=5, aadha=0.5.
+4. If the user asks general questions or small talk, set action to "GENERAL_CHAT".
+5. If the user says "remove all" or "saare items hata do", set action to "CLEAR_ALL".`
+
+function attachBrandIfPackaged(itemName: string): string {
+  const lower = itemName.toLowerCase().trim()
+  // Check if it is a fresh fruit or vegetable
+  if (PRODUCE_KEYWORDS.has(lower) || Array.from(PRODUCE_KEYWORDS).some(p => lower.includes(p))) {
+    return itemName
+  }
+
+  // Check if brand is already present
+  if (/(amul|tata|fortune|aashirvaad|britannia|maggi|nestle|parle|surf|dettol|colgate|mother dairy)/i.test(lower)) {
+    return itemName
+  }
+
+  // Lookup default brand
+  for (const [k, branded] of Object.entries(BRAND_ASSOCIATIONS)) {
+    if (lower === k || lower.includes(k)) {
+      return branded
+    }
+  }
+
+  return itemName
+}
 
 export async function processVoiceWithGemini(
   transcript: string,
@@ -98,13 +158,13 @@ export async function processVoiceWithGemini(
           success: true,
           action: parsed.action || 'ADD_ITEM',
           items: (parsed.items || []).map((i: any) => ({
-            product_name: cleanSpokenItemName(i.product_name) || i.product_name,
+            product_name: i.product_name,
             quantity: Math.max(1, Math.round(Number(i.quantity) || 1)),
             unit: i.unit || 'item',
             category: i.category || 'other',
             brand: i.brand,
           })),
-          spoken_text: parsed.spoken_text || 'Item updated in your list.',
+          spoken_text: parsed.spoken_text || 'Updated item in your list.',
           confidence: Number(parsed.confidence) || 0.95,
         }
       }
@@ -168,33 +228,38 @@ export async function processVoiceWithGemini(
   if (intent === 'remove') {
     const rawName = localParsed.items[0]?.name || cleanTranscript
     const cleanName = cleanSpokenItemName(rawName) || rawName
+    const brandedName = attachBrandIfPackaged(cleanName)
     return {
       success: true,
       action: 'REMOVE_ITEM',
       items: [
         {
-          product_name: cleanName,
+          product_name: brandedName,
           quantity: 1,
           unit: 'item',
           category: 'other',
         },
       ],
-      spoken_text: isHindiMode ? `${cleanName} hata diya gaya hai.` : `Removed ${cleanName} from your list.`,
+      spoken_text: isHindiMode ? `${brandedName} hata diya gaya hai.` : `Removed ${brandedName} from your list.`,
       confidence: 0.9,
     }
   }
 
   // Default Add Items
   const itemsToAdd = localParsed.items.length > 0
-    ? localParsed.items.map((i) => ({
-        product_name: cleanSpokenItemName(i.name) || i.name,
-        quantity: i.quantity || 1,
-        unit: i.unit || 'item',
-        category: i.category || 'other',
-      }))
+    ? localParsed.items.map((i) => {
+        const cleanName = cleanSpokenItemName(i.name) || i.name
+        const brandedName = attachBrandIfPackaged(cleanName)
+        return {
+          product_name: brandedName,
+          quantity: i.quantity || 1,
+          unit: i.unit || 'item',
+          category: i.category || 'other',
+        }
+      })
     : [
         {
-          product_name: cleanSpokenItemName(cleanTranscript) || cleanTranscript,
+          product_name: attachBrandIfPackaged(cleanSpokenItemName(cleanTranscript) || cleanTranscript),
           quantity: 1,
           unit: 'item',
           category: 'other',

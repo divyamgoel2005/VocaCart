@@ -489,65 +489,87 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
           return
         }
 
-        // 9. General Voice Adding & Removing
+        // 9. Voice Processing (Gemini AI + Local NLP Backend)
         const localParsed = parseVoiceCommand(transcript)
         const detected = detectIntent(transcript)
 
-        // Multiple items in single utterance
-        if (localParsed.items.length > 1 && detected === 'add') {
-          for (const parsedItem of localParsed.items) {
-            await addParsedItem(parsedItem)
-          }
-          const itemNames = localParsed.items
-            .map((x) => `${x.quantity > 1 ? x.quantity + ' ' : ''}${x.name}`)
-            .join(', ')
-          const spoken = isHindiMode
-            ? `${itemNames} aapki list mein jod diye gaye hain.`
-            : `Added ${itemNames} to your list.`
-          speakText(spoken)
-          setLastResult(localParsed)
-          setVoiceStatus('success')
-          return
-        }
-
-        // Backend Voice Processing
         try {
           const backendRes = await processVoiceBackend(transcript, lastSuggestedProduct)
 
           if (backendRes.success && !backendRes.needs_clarification) {
-            const act = backendRes.action || 'ADD_ITEM'
-            const cleanProdName = backendRes.item
-              ? cleanSpokenItemName(backendRes.item.product_name) || backendRes.item.product_name
-              : ''
+            const act = backendRes.action || (detected === 'remove' ? 'REMOVE_ITEM' : 'ADD_ITEM')
+
+            if (act === 'CLEAR_ALL') {
+              await clearAllItems()
+              setLastResult({ transcript, intent: 'remove', items: [] })
+              setVoiceStatus('success')
+              return
+            }
+
+            if (act.includes('REMOVE')) {
+              const itemToRemove = backendRes.item?.product_name || backendRes.raw_item_name || transcript
+              const cleanTarget = cleanSpokenItemName(itemToRemove) || itemToRemove
+              const existing = items.find(
+                (i) =>
+                  areItemsEquivalent(i.name, cleanTarget) ||
+                  i.name.toLowerCase().includes(cleanTarget.toLowerCase()) ||
+                  cleanTarget.toLowerCase().includes(i.name.toLowerCase())
+              )
+              if (existing) {
+                await removeItem(existing.id)
+                const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
+                speakText(backendRes.spoken_text || spoken)
+                pushHistory('remove', spoken)
+              } else {
+                speakText(isHindiMode ? `${cleanTarget} list mein nahi mila.` : `Could not find ${cleanTarget} in list.`)
+              }
+              setLastResult({ transcript, intent: 'remove', items: [] })
+              setVoiceStatus('success')
+              return
+            }
+
+            // ADD_ITEM action
+            const itemsToAdd = (backendRes.items && backendRes.items.length > 0)
+              ? backendRes.items
+              : backendRes.item
+                ? [backendRes.item]
+                : localParsed.items.length > 0
+                  ? localParsed.items.map(i => ({ product_name: i.name, quantity: i.quantity, unit: i.unit, category: i.category }))
+                  : [{ product_name: cleanSpokenItemName(transcript) || transcript, quantity: 1, unit: 'item', category: 'other' }]
+
+            for (const itm of itemsToAdd) {
+              const cleanProdName = cleanSpokenItemName(itm.product_name) || itm.product_name
+              await addParsedItem({
+                name: cleanProdName,
+                quantity: Math.max(1, Math.round(itm.quantity || 1)),
+                unit: itm.unit,
+                category: mapToCategory(itm.category),
+              })
+            }
 
             if (backendRes.spoken_text) {
               speakText(backendRes.spoken_text, backendRes.urgency_score)
             }
-            pushHistory(act.includes('REMOVE') ? 'remove' : 'add', backendRes.spoken_text || `Processed ${act}`)
+            pushHistory('add', backendRes.spoken_text || `Added ${itemsToAdd.length} items`)
 
-            if (backendRes.item) {
-              setLastResult({
-                transcript,
-                intent: act.includes('REMOVE') ? 'remove' : 'add',
-                items: [
-                  {
-                    name: cleanProdName,
-                    quantity: Math.max(1, Math.round(backendRes.item.quantity || 1)),
-                    unit: backendRes.item.unit,
-                    category: mapToCategory(backendRes.item.category),
-                  },
-                ],
-              })
-            } else {
-              setLastResult(localParsed)
-            }
+            setLastResult({
+              transcript,
+              intent: 'add',
+              items: itemsToAdd.map((i) => ({
+                name: cleanSpokenItemName(i.product_name) || i.product_name,
+                quantity: Math.max(1, Math.round(i.quantity || 1)),
+                unit: i.unit,
+                category: mapToCategory(i.category),
+              })),
+            })
 
             const updatedList = await getShoppingList()
             setItems(updatedList)
             refreshSuggestions(updatedList)
             setVoiceStatus('success')
+            return
           } else {
-            // Local fallback if backend confidence was low or custom item
+            // Local fallback
             const rawCandidate =
               backendRes.suggested_product ||
               backendRes.raw_item_name ||
@@ -558,7 +580,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             if (detected === 'remove') {
               const existing = items.find(i => areItemsEquivalent(i.name, itemNameToUse))
               if (existing) {
-                await removeShoppingItem(existing.id)
+                await removeItem(existing.id)
                 const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
                 speakText(spoken)
                 pushHistory('remove', spoken)
@@ -570,42 +592,12 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
               const unit = localParsed.items[0]?.unit || 'item'
               const cat = mapToCategory(localParsed.items[0]?.category || 'other')
 
-              const existing = items.find(i => areItemsEquivalent(i.name, itemNameToUse))
-
-              if (existing) {
-                const newQty = existing.quantity + qty
-                await updateItemQuantity(existing.id, newQty)
-                const spoken = isHindiMode
-                  ? `${itemNameToUse} ke ${qty} aur jod diye. Ab total ${newQty} hain.`
-                  : `Added ${qty} more ${itemNameToUse}. Total is now ${newQty}.`
-                speakText(spoken)
-                pushHistory('update', spoken)
-
-                setLastResult({
-                  transcript,
-                  intent: 'update',
-                  items: [{ name: existing.name, quantity: newQty, unit: existing.unit, category: existing.category }],
-                })
-              } else {
-                await addShoppingItem({
-                  name: itemNameToUse,
-                  quantity: qty,
-                  unit: unit,
-                  category: cat,
-                })
-
-                const spoken = isHindiMode
-                  ? `${qty > 1 ? qty + ' ' : ''}${itemNameToUse} list mein jod diya hai.`
-                  : `Added ${qty > 1 ? qty + ' ' : ''}${itemNameToUse} to your list.`
-                speakText(spoken)
-                pushHistory('add', spoken)
-
-                setLastResult({
-                  transcript,
-                  intent: 'add',
-                  items: [{ name: itemNameToUse, quantity: qty, unit, category: cat }],
-                })
-              }
+              await addParsedItem({
+                name: itemNameToUse,
+                quantity: qty,
+                unit: unit,
+                category: cat,
+              })
             }
 
             const updatedList = await getShoppingList()
@@ -614,13 +606,13 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
             setVoiceStatus('success')
           }
         } catch (backendErr) {
-          console.warn('Backend voice processing fallback:', backendErr)
+          console.warn('Voice processing fallback:', backendErr)
 
           if (detected === 'remove') {
             const targetName = cleanSpokenItemName(localParsed.items[0]?.name || transcript.trim())
             const existing = items.find(i => areItemsEquivalent(i.name, targetName))
             if (existing) {
-              await removeShoppingItem(existing.id)
+              await removeItem(existing.id)
               const spoken = isHindiMode ? `${existing.name} hata diya gaya hai.` : `Removed ${existing.name}.`
               speakText(spoken)
               pushHistory('remove', `Removed ${existing.name}`)
@@ -656,6 +648,7 @@ export function VocaCartProvider({ children }: { children: React.ReactNode }) {
       lastSuggestedProduct,
       pushHistory,
       refreshSuggestions,
+      removeItem,
       runSearch,
       speakText,
       toggleComplete,
