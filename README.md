@@ -1,128 +1,192 @@
-# Voice Command Shopping Assistant
+<div align="center">
 
-An end-to-end, production-ready **Voice Command Shopping Assistant** built with **FastAPI**, **Next.js 14**, **Groq Llama 3.1**, **sentence-transformers**, **librosa**, **ChromaDB**, **PostgreSQL**, **Redis**, and **Socket.IO**.
+# 🎙️ VocaCart — AI-Powered Multilingual Voice Shopping Assistant
+
+[![Live Deployment](https://img.shields.io/badge/Live%20Demo-voca--cart.vercel.app-blue?style=for-the-badge&logo=vercel)](https://voca-cart.vercel.app)
+[![Next.js 14](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Gemini AI](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-orange?style=for-the-badge&logo=google)](https://deepmind.google/technologies/gemini/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com/)
+
+**An ultra-fast, production-grade bilingual voice shopping assistant designed for Indian and global e-commerce. Built with zero-latency client execution, intelligent FMCG brand mapping, recipe bundles, and natural human neural speech synthesis.**
 
 ---
 
-## Quickstart
+### 🌐 [Click Here to Try the Live Application](https://voca-cart.vercel.app)
 
-### Option A: Docker Compose (If Docker Desktop is installed)
+</div>
 
-```bash
-# 1. Copy environment template
-cp .env.example .env
+---
 
-# 2. Launch full stack via Docker Compose
-docker compose up --build
+## 🌟 Highlights & Key Features
+
+- ⚡ **0ms Real-Time Voice Processing**: Instantaneous client-side parsing and optimistic UI updates — no blocking network latency when speaking.
+- 🗣️ **Fluent Bilingual Conversational AI**: Seamlessly understands and responds in **English**, **Hindi (हिन्दी)**, and **Hinglish**.
+- 🏷️ **Smart FMCG Brand Attachment**: Automatically associates trusted Indian household brands for packaged goods (*Milk* ➔ *Amul Milk*, *Atta* ➔ *Aashirvaad Atta*, *Salt* ➔ *Tata Salt*) while keeping fresh produce (*Tomatoes*, *Apples*) clean.
+- 🎯 **Exact Brand Preservation**: Explicit brands like *Oreo Biscuits*, *Mother Dairy Milk*, or *Bourbon* are preserved exactly as spoken.
+- 🎙️ **Dual-Persona Neural Speech Synthesis**: Authentic Hindi pronunciation via Devanagari transliteration and crisp, energetic female English voice playback.
+- 🍳 **One-Shot Recipe Bundles**: Add complete multi-item ingredient packages with a single natural phrase (e.g. *"Chai ka samaan"*).
+- 🧹 **Universal Cart Control**: Clear, empty, or delete the whole cart, or perform partial quantity reductions (*"delete 5 packets"*).
+- 💬 **Interactive Chit-Chat & Jokes**: Supports conversational small talk, jokes, capability queries, and status checks.
+- 💾 **Persistent Offline-First Cart**: State is synchronized to local storage and restored automatically across page refreshes.
+
+---
+
+## 🎯 What to Try (Voice Commands Guide)
+
+Try tapping the microphone button (or pressing Spacebar) and saying any of the following:
+
+### 1. 🛒 Adding & Modifying Groceries
+| Language | Voice Command Example | What Happens |
+| :--- | :--- | :--- |
+| **English** | *"Add 2 packets of milk and 1 kg tomatoes"* | Adds 2 packs **Amul Milk** & 1 kg **Tomatoes** |
+| **English** | *"Add 1 pack of Oreo biscuits and 2 bottles of oil"* | Adds **Oreo Biscuits** & **Fortune Sunflower Oil** |
+| **Hindi** | *"1 packet doodh aur 2 kg aalu daal do"* | Adds 1 pack **Amul Milk** & 2 kg **Potatoes** |
+| **Hinglish** | *"2 bread aur 1 makhan add karo"* | Adds **Britannia Bread** & **Amul Butter** |
+
+### 2. 🍳 Recipe Bundles (Multi-Item Instant Add)
+| Voice Command | Items Added Automatically | Spoken Confirmation |
+| :--- | :--- | :--- |
+| *"Chai ka samaan"* / *"Make tea"* | Tata Tea Premium, Amul Milk, Madhur Sugar, Fresh Ginger | *"Chai banane ka saara samaan list mein jod diya hai"* |
+| *"Maggi banani hai"* | Maggi 2-Minute Noodles, Amul Butter, Cheese | *"Maggi banane ke items jod diye"* |
+| *"Breakfast items"* | Britannia Bread, Eggs, Amul Butter, Amul Milk | *"Added breakfast essentials to your cart"* |
+| *"Dal chawal"* | Basmati Rice, Toor Dal, Amul Pure Ghee, Tata Salt | *"Dal chawal ka samaan jod diya hai"* |
+
+### 3. 💬 Jokes & Small Talk (Chit-Chat)
+| Voice Command | Assistant Response |
+| :--- | :--- |
+| *"Tell me a joke"* | *"Why did the tomato blush? Because it saw the salad dressing!"* |
+| *"Ek joke sunao"* | *"Pati ne patni se pucha: Aaj khane mein kya bana rahi ho? Patni boli: Gussa! Pati bola: Theek hai, thoda kam namak daalna!"* |
+| *"How are you?"* / *"Kaise ho"* | *"I'm doing wonderful! What would you like to add today?"* / *"मैं बिल्कुल बढ़िया हूँ! आपकी मदद के लिए तैयार हूँ।"* |
+| *"Who are you?"* / *"Tum kaun ho"* | *"I am VocaCart, your AI voice grocery shopping assistant!"* |
+
+### 4. 🔢 Quantity Adjustments & Removals
+- **Partial Reduction**: Cart has 10 milk packets ➔ Say: *"Remove 5 packets of milk"* ➔ Cart updates to 5 remaining.
+- **Single Item Delete**: *"Remove all the milk"* or *"Tamatar hata do"* ➔ Removes only that specific item.
+- **Complete Cart Reset**: *"Empty the cart"*, *"Remove all cart"*, *"Cart khali karo"*, or *"Sab hata do"* ➔ Clears the entire cart with confirmation.
+
+### 5. 🧾 Inquiries, Totals & Undo
+- **Read List**: *"What's in my cart?"* / *"List mein kya kya hai?"*
+- **Total Bill**: *"What is my total bill?"* / *"Estimated total kitna hua?"*
+- **Check-off**: *"Doodh le liya"* / *"Mark milk as done"* ➔ Checks off item in the list.
+- **Undo**: *"Undo"* / *"Wapas lo"* ➔ Reverts the previous cart mutation.
+
+---
+
+## 🏗️ System Architecture
+
+```
+                                  +-----------------------------------------------------+
+                                  |                 User Voice Input                    |
+                                  |     (Web Speech API / Interim & Final Stream)       |
+                                  +-----------------------------------------------------+
+                                                             |
+                                                             v
+                                  +-----------------------------------------------------+
+                                  |        Dynamic Language & Intent Classifier         |
+                                  |    (English vs. Hindi/Hinglish NLP Pattern Engine)  |
+                                  +-----------------------------------------------------+
+                                                             |
+                    +----------------------------------------+----------------------------------------+
+                    |                                                                                 |
+                    v                                                                                 v
+   +---------------------------------+                                               +---------------------------------+
+   |      Special Intent Handlers    |                                               |    Core Grocery NLP Pipeline    |
+   | - Chit-Chat / Jokes / Greetings |                                               | - Number & Unit Normalizer      |
+   | - Recipe Bundles ("Chai/Maggi") |                                               | - Brand Attachment Engine       |
+   | - Clear All / Empty Cart        |                                               | - Conflict-Free Brand Matcher   |
+   | - Undo & Check-Off Commands     |                                               | - Partial Quantity Reducer      |
+   +---------------------------------+                                               +---------------------------------+
+                    |                                                                                 |
+                    +----------------------------------------+----------------------------------------+
+                                                             |
+                                                             v
+                                  +-----------------------------------------------------+
+                                  |               State Management & Storage            |
+                                  |       (React 19 Context + LocalStorage Cache)       |
+                                  +-----------------------------------------------------+
+                                                             |
+                                                             v
+                                  +-----------------------------------------------------+
+                                  |        Bilingual Neural TTS Voice Synthesizer       |
+                                  | - Native Hindi Voice with Devanagari Transliteration|
+                                  | - Crisp Female English Voice (1.18x Speed)          |
+                                  +-----------------------------------------------------+
 ```
 
-### Option B: Running Locally Without Docker (Recommended if Docker is not installed)
+---
 
-Since Python 3.11 and Node.js are installed on your machine, you can run the app directly in two terminal windows:
+## 🛠️ Technology Stack
 
-**Terminal 1 — FastAPI Backend:**
+| Domain | Technologies Used |
+| :--- | :--- |
+| **Frontend Framework** | **Next.js 14** (App Router), **React 19**, **TypeScript** |
+| **Styling & UI** | **Tailwind CSS**, Glassmorphic Design, **Lucide Icons** |
+| **Voice & Speech** | **Web Speech Recognition API**, **SpeechSynthesis API** (Neural Voices) |
+| **AI & NLP** | **Google Gemini 2.5 Flash**, Custom Deterministic Bilingual Slot Parser |
+| **Transliteration** | Native Hinglish-to-Devanagari phonetic mapping engine |
+| **Backend (Optional Microservice)** | **FastAPI**, **Uvicorn**, **SQLAlchemy**, **ChromaDB**, **Groq Llama 3.1** |
+| **Deployment** | **Vercel** Edge/Serverless Infrastructure |
+
+---
+
+## 🚀 Getting Started Locally
+
+### Prerequisites
+- **Node.js** 18+ and **npm** installed.
+- Modern browser (Chrome, Edge, Safari, Brave) with microphone permissions enabled.
+
+### Quick Run
+
 ```bash
-cd backend
-uvicorn app.main:app --reload --port 8000
-```
+# 1. Clone the repository
+git clone https://github.com/divyamgoel2005/VocaCart.git
+cd VocaCart
 
-**Terminal 2 — Next.js Frontend:**
-```bash
-cd frontend
+# 2. Install dependencies
+npm install
+
+# 3. Run the development server
 npm run dev
 ```
 
-Once running, access:
-- **Frontend App**: [http://localhost:3000](http://localhost:3000)
-- **FastAPI OpenAPI Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+Open [http://localhost:3000](http://localhost:3000) in your browser to start shopping by voice!
 
 ---
 
-## Architecture Diagram
+## 📂 Repository Structure
 
 ```
-+-------------------+             audio / transcript           +-----------------------+
-|                   |----------------------------------------->|     FastAPI: voice    |
-|                   |                                          +-----------------------+
-|                   |                                                      |
-|                   |                       +------------------------------+------------------------------+
-|                   |                       |                              |                              |
-|                   |                       v                              v                              v
-|                   |             +-------------------+          +-------------------+          +-------------------+
-| Next.js Frontend  |             | Groq Llama 3.1    |          | sentence-transf.  |          |   FastAPI: list   |
-|                   |             | intent & slot     |          | & rapidfuzz item  |          +-------------------+
-|                   |             +-------------------+          | resolution        |                    |
-|                   |                                            +-------------------+          +---------+---------+
-|                   |                                                                           |                   |
-|                   |                                                                           v                   v
-|                   |<--------------------+                                                 +-------+           +-------+
-|                   |    live updates     |                                                 | Redis |           |  PG   |
-|                   |                     |                                                 +-------+           +-------+
-+-------------------+                     |                                                                         ^
-          ^                               |                                                                         |
-          |                               |                    +------------------+     librosa audio prosody       |
-          |                               |                    | FastAPI: emotion |---------------------------------+
-          |                               |                    +------------------+     + text urgency score        |
-          |                               |                             |                                           |
-          |                               |                             v                                           |
-          +-------------------------------+--------------------->+---------------+                                  |
-                                          |                      |    FastAPI:   |----------------------------------+
-                                          +--------------------->|  suggestions  |
-                                                                 +---------------+
-                                                                         |
-                                                                         v
-                                                                   +-----------+
-                                                                   | ChromaDB  |
-                                                                   +-----------+
+VocaCart/
+├── app/                  # Next.js App Router pages & serverless API routes
+│   ├── api/              # /api/list, /api/voice/process, /api/products, /api/suggestions
+│   ├── globals.css       # Design tokens, animations, and global styles
+│   └── page.tsx          # Main VocaCart Command Center UI
+├── components/           # Modular component hierarchy
+│   ├── history/          # Activity timeline & voice log
+│   ├── language/         # Bilingual switcher
+│   ├── providers/        # Global VocaCart context provider & TTS synthesizer
+│   ├── search/           # Voice search & product catalog cards
+│   ├── shared/           # Header, Panel, CategoryMeta
+│   ├── shopping-list/    # Shopping list & category item groups
+│   ├── suggestions/      # Smart picks & suggestion cards
+│   └── voice/            # Voice Hero, Orb, Waveform, Command transcript
+├── backend/              # Python FastAPI microservice & ML models
+├── lib/                  # Core domain logic
+│   ├── api/              # Services, catalog data, types
+│   ├── i18n/             # Translations dictionary (English, Hindi, Hinglish)
+│   └── voice/            # Parser, Gemini NLP, Transliterate, Recipes, Recognition
+├── data/                 # Product catalogs and synthetic order datasets
+└── public/               # Static assets and Web App Manifest
 ```
 
 ---
 
-## ML & NLP Component Breakdown
+<div align="center">
 
-### 1. Intent & Slot Extraction Engine (`Groq Llama 3.1 8B Instant` + `Fallback Parser`)
-- **Purpose**: Extracts structured JSON intents (`ADD_ITEM`, `REMOVE_ITEM`, `UPDATE_QUANTITY`, `CLEAR_LIST`, `SEARCH`) and slots (`item_name`, `quantity`, `unit`).
-- **Design Rationale**: Groq provides ultra-fast sub-100ms inference for Llama 3.1 8B. To guarantee 100% offline availability without API key dependency, a dual-layer regex/keyword parser is built-in supporting code-switched Hinglish/English phrases like *"do packet Maggi add karo"* or *"tin kg rice jodo"*.
+**Built with ❤️ for frictionless voice-assisted commerce.**
 
-### 2. Item Resolution & Catalog Search (`sentence-transformers` + `rapidfuzz`)
-- **Purpose**: Maps messy spoken queries (with typos or mishearings like *"mangi"* or *"amul butter pack"*) to exact catalog product records.
-- **Design Rationale**: Combines `rapidfuzz.fuzz.token_set_ratio` with `all-MiniLM-L6-v2` dense vector embeddings. Composite score: $0.4 \times Fuzzy + 0.6 \times Semantic$. If composite confidence $< 0.65$, the system triggers a clarifying question prompt (e.g. *"Did you mean Whole Wheat Bread or Garlic Bread?"*) rather than executing an erroneous edit.
+[🚀 Try Live Application](https://voca-cart.vercel.app) • [⭐ Star on GitHub](https://github.com/divyamgoel2005/VocaCart)
 
-### 3. Emotion Prosody & Text Urgency Fusion (`librosa` + `vaderSentiment`)
-- **Purpose**: Dynamically measures user urgency from voice pitch, energy, speaking rate, and text sentiment.
-- **Design Rationale**: `librosa` extracts $F0$ pitch variance, RMS energy, and onset tempo. `vaderSentiment` calculates text urgency density. The fused index ($0.5 \times Prosodic + 0.5 \times TextUrgency$) adjusts frontend TTS confirmations (concise vs. verbose) and prioritizes urgent suggestion pushes.
-
-### 4. Local Audio Transcription Fallback (`faster-whisper`)
-- **Purpose**: Transcribes raw uploaded audio clips locally when Web Speech API confidence is low or when audio files are posted.
-- **Design Rationale**: `faster-whisper` (tiny model with int8 quantization) provides high-accuracy local multilingual transcription without cloud API dependencies.
-
-### 5. Vector Database (`ChromaDB`)
-- **Purpose**: Stores 2,500+ Indian grocery item embeddings for instant semantic search and smart substitute recommendations.
-
-### 6. Recommendation Engine (Co-occurrence & Depletion Time-Decay)
-- **Purpose**: Powers "Usually Bought Together", "Probably Running Low", and "Smart Substitutes".
-- **Design Rationale**: Built from 1,200+ synthetic session order co-purchases (e.g. Milk + Cereal, Bread + Butter, Maggi + Ketchup).
-
----
-
-## Approach Write-up (~200 words)
-
-Building a seamless voice-assisted e-commerce interface requires balancing real-time conversational responsiveness with precision database operations. In this project, we designed a resilient, modular architecture where the Next.js 14 frontend communicates with FastAPI services over HTTP and ASGI Socket.IO for instant live synchronization.
-
-Voice command understanding uses a dual-engine intent parser: online Groq Llama 3.1 8B Instant for high-accuracy slot extraction, backed by a deterministic regex parser capable of parsing code-switched Hinglish inputs (*"do packet Maggi add karo"*). Disambiguation is handled by combining `rapidfuzz` string token ratios with `sentence-transformers` (`all-MiniLM-L6-v2`) embeddings in ChromaDB. If confidence falls below 0.65, the API branches gracefully to ask a clarifying question.
-
-For multimodal perception, a custom lightweight emotion engine fuses audio prosodic features (pitch variance, RMS energy, speaking rate extracted via `librosa`) with text urgency metrics. This fused score alters feedback verbosity and recommendation aggressiveness in real time. State persistence is managed through SQLAlchemy PostgreSQL models with Redis caching and single-click action log undo capability. Containerized via Docker Compose, the complete stack launches deterministically with zero manual setup.
-
----
-
-## Verification & Test Execution
-
-Run backend unit tests:
-```bash
-python -m pytest backend/tests
-```
-
-Run frontend unit tests:
-```bash
-cd frontend && npm test
-```
+</div>
